@@ -1,11 +1,7 @@
-node_modules/
-frontend-react/dist/
-.env
-.env.*
-*.log
+frontend/node_modules/
+frontend/dist-gp/
+frontend/dist-un/
+frontend/tsconfig.tsbuildinfo
+dist-site/
 .DS_Store
-coverage/
-outputs/
-docs/reference/
-
-artifacts/prototype-qa/
+qa-artifacts/

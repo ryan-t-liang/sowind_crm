@@ -1,21 +1,14 @@
 {
-  "name": "kivisense-crm",
+  "name": "sowind-aftersales-prototype",
   "version": "2.0.0",
   "private": true,
   "type": "module",
-  "workspaces": ["frontend-react"],
-  "engines": { "node": ">=22" },
   "scripts": {
-    "dev": "npm --workspace frontend-react run dev",
-    "build": "npm --workspace frontend-react run build",
-    "test": "npm --workspace frontend-react run test",
-    "lint": "npm --workspace frontend-react run lint",
-    "qa:browser": "node qa/prototype-browser-qa.mjs",
-    "qa:dashboard": "node qa/dashboard-browser-qa.mjs",
-    "qa:marketing": "node qa/marketing-v2-browser-qa.mjs",
-    "qa:marketing:v21": "node qa/marketing-v21-browser-qa.mjs",
-    "qa:marketing:final": "node qa/marketing-final-browser-qa.mjs",
-    "qa:core": "node qa/core-integrity-browser-qa.mjs",
-    "qa:marketing:refinement": "node qa/marketing-refinement-browser-qa.mjs"
+    "install:frontend": "npm ci --prefix frontend",
+    "build": "npm run build --prefix frontend",
+    "assemble": "node scripts/assemble-site.mjs",
+    "preview": "python3 -m http.server 4181 --bind 127.0.0.1 --directory dist-site",
+    "qa": "node qa/browser-qa.cjs",
+    "verify": "npm run build && npm run assemble"
   }
 }

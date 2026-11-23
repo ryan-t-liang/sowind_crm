@@ -1,0 +1,25 @@
+.fm-web-contact {
+  width: min(86%, 360px);
+  margin: 22px auto 0;
+  padding: 14px 16px;
+  border-top: 1px solid rgba(105, 89, 67, 0.24);
+  color: #6d5b46;
+  text-align: center;
+  display: grid;
+  gap: 4px;
+}
+
+.fm-web-contact strong { font-size: 12px; font-weight: 500; }
+.fm-web-contact a { color: inherit; font-size: 13px; text-decoration: underline; text-underline-offset: 3px; }
+.fm-web-contact small { color: #9d9285; font-size: 9px; }
+.fm-terms-dialog { max-height: min(620px, calc(100vh - 32px)); overflow: auto; }
+.fm-terms-copy { display: grid; gap: 12px; color: #57534e; font-size: 13px; line-height: 1.75; }
+.fm-success-dialog { text-align: center; }
+.fm-success-icon { width: 58px; height: 58px; margin: 0 auto; border-radius: 999px; background: #f1ebe3; color: var(--fm-accent); display: grid; place-items: center; }
+.fm-success-icon svg { width: 28px; height: 28px; }
+.fm-service-updates { margin: 20px 18px 0; padding: 18px 0 20px; border-top: 1px solid #e5ded4; }
+.fm-service-updates h2 { margin: 0 0 12px; font-family: Georgia, "Times New Roman", serif; font-size: 18px; font-weight: 400; }
+.fm-service-updates p { margin: 0; padding: 10px 0; display: flex; justify-content: space-between; gap: 18px; border-bottom: 1px solid #eee8e0; color: #6f665b; font-size: 12px; }
+.fm-service-updates p strong { color: #26211b; font-weight: 500; }
+.fm-product-panel > div > button { width: 38px; border: 0; background: transparent; color: #5f584f; display: grid; place-items: center; }
+.fm-product-panel > div > button svg { margin: 0; }
