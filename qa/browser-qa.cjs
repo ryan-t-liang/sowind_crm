@@ -27,6 +27,33 @@ fs.mkdirSync(output, { recursive: true });
   async function expectAdminStatus(admin, status) {
     await expectText(admin.locator('#serviceDetailHeadActions'), status);
   }
+  async function expectProductImage(page, brand) {
+    const images = page.locator('.product-confirm img');
+    assert.equal(await images.count(), 1, brand + ' confirmation should contain exactly one product image');
+    const image = images.first();
+    await image.waitFor({ state: 'visible' });
+    await image.evaluate(async element => {
+      if (!element.complete || element.naturalWidth === 0) await element.decode();
+    });
+    const state = await image.evaluate(element => {
+      const rect = element.getBoundingClientRect();
+      const card = element.closest('.product-confirm').getBoundingClientRect();
+      return {
+        complete: element.complete,
+        naturalWidth: element.naturalWidth,
+        naturalHeight: element.naturalHeight,
+        alt: element.getAttribute('alt') || '',
+        src: element.currentSrc || element.src,
+        inside: rect.left >= card.left && rect.right <= card.right && rect.top >= card.top && rect.bottom <= card.bottom,
+      };
+    });
+    assert(state.complete && state.naturalWidth > 0 && state.naturalHeight > 0, brand + ' product image should load');
+    assert(state.alt.trim(), brand + ' product image should have meaningful alt text');
+    assert(state.inside, brand + ' product image should stay inside its confirmation card');
+    return state.src;
+  }
+
+  const productSources = new Map();
 
   for (const [brand, route] of [['GP', 'girard-perregaux'], ['UN', 'ulysse-nardin']]) {
     const context = await browser.newContext({ viewport: { width: 375, height: 812 } });
@@ -40,7 +67,12 @@ fs.mkdirSync(output, { recursive: true });
       page.on('console', message => {
         if (message.type() === 'error') runtimeErrors.push(message.text() + ' [' + (message.location().url || page.url()) + ']');
       });
-      page.on('requestfailed', request => runtimeErrors.push(request.method() + ' ' + request.url() + ' ' + (request.failure() || {}).errorText));
+      page.on('requestfailed', request => {
+        const errorText = (request.failure() || {}).errorText || '';
+        // Fast hash-route changes legitimately cancel header/icon requests from
+        // the page being left; keep real network failures as regressions.
+        if (errorText !== 'net::ERR_ABORTED') runtimeErrors.push(request.method() + ' ' + request.url() + ' ' + errorText);
+      });
     }
     const check = name => checks.push(name);
     const mobileUrl = base + '/mockup/' + route + '/index.html';
@@ -61,6 +93,8 @@ fs.mkdirSync(output, { recursive: true });
       await mobile.getByRole('button', { name: '添加产品', exact: true }).click();
       await mobile.getByRole('textbox', { name: '作品编号', exact: true }).fill(brand + 'QA20261124');
       await mobile.getByRole('button', { name: '下一步', exact: true }).click();
+      productSources.set(brand, await expectProductImage(mobile, brand));
+      await screenshot(mobile, brand.toLowerCase() + '-04-product-confirmation');
       await mobile.getByRole('button', { name: '确定', exact: true }).click();
       await selectMobile(mobile, '选择售后原因*', '全面保养服务');
       await mobile.getByRole('textbox', { name: '留言和说明', exact: true }).fill('请检测走时并安排全面保养');
@@ -95,6 +129,26 @@ fs.mkdirSync(output, { recursive: true });
 
       await admin.goto(base + '/mockup/sowind_crm/index.html', { waitUntil: 'networkidle' });
       await admin.getByRole('button', { name: '售后服务', exact: true }).click();
+      const newStatusLabels = [
+        '作品已收到，待报价/付款',
+        '作品报价/付款已确认，订零件中',
+        '作品报价/付款已确认，正在维修中',
+        '作品维修完成，待寄回',
+      ];
+      const statusOptions = await admin.locator('#serviceStatus option').allTextContents();
+      for (const label of newStatusLabels) assert(statusOptions.includes(label), 'Admin status filter should include ' + label);
+      assert(!statusOptions.includes('作品已收到，待售后'), 'Admin filter should remove the old received status');
+      assert(!statusOptions.includes('作品已完成售后，待付款'), 'Admin filter should remove the old post-repair payment status');
+      const newStatusColors = await admin.evaluate(statuses => statuses.map(status => {
+        const element = document.createElement('span');
+        element.className = 'service-status status-' + status;
+        document.body.appendChild(element);
+        const style = getComputedStyle(element);
+        const signature = [style.color, style.backgroundColor, style.borderColor].join('|');
+        element.remove();
+        return signature;
+      }), ['received', 'parts_ordering', 'repairing', 'repair_completed']);
+      assert.equal(new Set(newStatusColors).size, 4, 'The four quote/payment/repair statuses should use distinct visual treatments');
       const filterLayout = await admin.locator('.service-filter-grid').evaluate(element => {
         const rects = Array.from(element.children).filter(child => !child.hidden).map(child => { const box = child.getBoundingClientRect(); return { left: box.left, right: box.right, top: box.top, bottom: box.bottom }; });
         const overlaps = rects.some((box, index) => rects.slice(index + 1).some(other => box.left < other.right && box.right > other.left && box.top < other.bottom && box.bottom > other.top));
@@ -142,44 +196,69 @@ fs.mkdirSync(output, { recursive: true });
       await expectAdminStatus(admin, '作品已发回');
       await admin.locator('#serviceReceivedImages').setInputFiles(path.resolve(__dirname, '../frontend/public/figma/current/6e200.png'));
       await admin.getByRole('button', { name: '上传图片并确认收件', exact: true }).click();
-      await expectAdminStatus(admin, '作品已收到，待售后');
+      await expectAdminStatus(admin, '作品已收到，待报价/付款');
+      await expectText(mobile.locator('.appointment-info'), '作品已收到，待报价/付款');
       await admin.locator('#serviceQuote').fill('abc');
-      await admin.getByRole('button', { name: '提交报价与服务结果', exact: true }).click();
+      await admin.getByRole('button', { name: '确认付款并开始维修', exact: true }).click();
       await expectText(admin.locator('#serviceActionError'), '有效报价');
-      await expectAdminStatus(admin, '作品已收到，待售后');
+      await expectAdminStatus(admin, '作品已收到，待报价/付款');
       await admin.locator('#serviceQuote').fill('-10');
-      await admin.getByRole('button', { name: '提交报价与服务结果', exact: true }).click();
+      await admin.getByRole('button', { name: '确认付款并开始维修', exact: true }).click();
       await expectText(admin.locator('#serviceActionError'), '有效报价');
       await admin.locator('#serviceQuote').fill('3200.50');
+      await admin.getByRole('button', { name: '确认付款并开始维修', exact: true }).click();
+      await expectText(admin.locator('#serviceActionError'), '核实收到付款');
+      await admin.locator('#servicePaymentConfirmed').check();
+      if (brand === 'UN') {
+        await admin.getByRole('button', { name: '确认付款并订零件', exact: true }).click();
+        await expectAdminStatus(admin, '作品报价/付款已确认，订零件中');
+        await expectText(mobile.locator('.appointment-info'), '作品报价/付款已确认，订零件中');
+        await admin.getByRole('button', { name: '零件已到货，开始维修', exact: true }).click();
+      } else {
+        await admin.getByRole('button', { name: '确认付款并开始维修', exact: true }).click();
+      }
+      await expectAdminStatus(admin, '作品报价/付款已确认，正在维修中');
+      await expectText(mobile.locator('.appointment-info'), '作品报价/付款已确认，正在维修中');
+      await admin.getByRole('button', { name: '提交维修结果', exact: true }).click();
+      await expectText(admin.locator('#serviceActionError'), '服务说明');
       await admin.locator('#serviceNote').fill('已完成机芯清洁、润滑与走时检测');
-      await admin.getByRole('button', { name: '提交报价与服务结果', exact: true }).click();
+      await admin.getByRole('button', { name: '提交维修结果', exact: true }).click();
       await expectText(admin.locator('#serviceActionError'), '图片');
       await admin.locator('#serviceRepairImages').setInputFiles(path.resolve(__dirname, '../admin/sowind-sidebar-logo.png'));
-      await admin.getByRole('button', { name: '提交报价与服务结果', exact: true }).click();
-      await expectAdminStatus(admin, '作品已完成售后，待付款');
+      await admin.getByRole('button', { name: '提交维修结果', exact: true }).click();
+      await expectAdminStatus(admin, '作品维修完成，待寄回');
+      await expectText(mobile.locator('.appointment-info'), '作品维修完成，待寄回');
       await mobile.getByRole('button', { name: '工单记录', exact: true }).click();
       await expectText(mobile.locator('.timeline-quote'), '3,200.5');
-      const receivedEvent = mobile.locator('.ticket-timeline li').filter({ hasText: '作品已收到，待售后' }).first();
-      const paymentEvent = mobile.locator('.ticket-timeline li').filter({ hasText: '作品已完成售后，待付款' }).first();
+      for (const status of ['作品已收到，待报价/付款', '作品报价/付款已确认，正在维修中', '作品维修完成，待寄回']) {
+        assert.equal(await mobile.locator('.ticket-timeline li').filter({ hasText: status }).count(), 1, status + ' should appear exactly once in the customer timeline');
+      }
+      assert.equal(
+        await mobile.locator('.ticket-timeline li').filter({ hasText: '作品报价/付款已确认，订零件中' }).count(),
+        brand === 'UN' ? 1 : 0,
+        'Only the parts-ordering branch should show the optional parts status',
+      );
+      const receivedEvent = mobile.locator('.ticket-timeline li').filter({ hasText: '作品已收到，待报价/付款' }).first();
+      const repairCompletedEvent = mobile.locator('.ticket-timeline li').filter({ hasText: '作品维修完成，待寄回' }).first();
       const receivedImage = receivedEvent.locator('.timeline-images img').first();
-      const repairImage = paymentEvent.locator('.timeline-images img').first();
+      const repairImage = repairCompletedEvent.locator('.timeline-images img').first();
       await receivedImage.waitFor();
       await repairImage.waitFor();
       assert.notEqual(await receivedImage.getAttribute('src'), await repairImage.getAttribute('src'), 'Received and completed stages show different uploaded images');
+      assert(await receivedImage.evaluate(img => img.complete && img.naturalWidth > 0), 'A real received image is rendered');
       assert(await repairImage.evaluate(img => img.complete && img.naturalWidth > 0), 'A real repair image is rendered');
-      await paymentEvent.locator('.timeline-images button').first().click();
-      await mobile.getByRole('heading', { name: '服务图片', exact: true }).waitFor();
+      await repairCompletedEvent.locator('.timeline-images button').first().click();
+      const imageDialogTitle = mobile.getByRole('heading', { name: '服务图片', exact: true });
+      await imageDialogTitle.waitFor();
       assert(await mobile.locator('.preview-image').evaluate(img => img.complete && img.naturalWidth > 0));
       await mobile.getByRole('button', { name: '返回', exact: true }).click();
-      check('Both received and completed stages require and display their own images; quote validation remains enforced');
-      await screenshot(mobile, brand.toLowerCase() + '-09-payment-timeline');
-      await screenshot(admin, brand.toLowerCase() + '-10-admin-payment');
+      await imageDialogTitle.waitFor({ state: 'hidden' });
+      check('Prepayment gates repair; received and repair-completed stages display independent images; optional parts branch is represented');
+      await screenshot(mobile, brand.toLowerCase() + '-09-repair-timeline');
+      await screenshot(admin, brand.toLowerCase() + '-10-admin-repair-completed');
 
       await admin.locator('#serviceOutboundTracking').fill('SF-OUT-' + brand + '-20261124');
-      await admin.getByRole('button', { name: '确认收款并寄回', exact: true }).click();
-      await expectText(admin.locator('#serviceActionError'), '付款');
-      await admin.locator('#servicePaymentConfirmed').check();
-      await admin.getByRole('button', { name: '确认收款并寄回', exact: true }).click();
+      await admin.getByRole('button', { name: '录入物流并确认寄回', exact: true }).click();
       await expectAdminStatus(admin, '作品已寄回，待签收');
       await mobile.getByRole('button', { name: '我已收到作品', exact: true }).waitFor();
       await expectText(mobile.locator('.ticket-timeline'), 'SF-OUT-' + brand + '-20261124');
@@ -238,6 +317,8 @@ fs.mkdirSync(output, { recursive: true });
       await context.close();
     }
   }
+  assert(productSources.has('GP') && productSources.has('UN'), 'Both brand confirmation cards should render product imagery');
+  assert.notEqual(productSources.get('GP'), productSources.get('UN'), 'GP and UN should use different product-image assets');
   await browser.close();
   const report = { base, environment: 'Chrome headless, responsive 375x812 customer and 1440x1000 admin viewports; not physical-device testing', results, failures };
   fs.writeFileSync(path.join(output, 'results.json'), JSON.stringify(report, null, 2));

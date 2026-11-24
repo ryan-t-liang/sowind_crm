@@ -1871,14 +1871,16 @@
     .service-table tbody tr:hover td:last-child { background:#fbfcfa; }
     .service-ticket strong,.service-customer strong { display:block; font-size:12px; color:#222; }
     .service-ticket span,.service-customer span { display:block; margin-top:5px; font-size:10px; color:var(--muted); }
-    .service-status { display:inline-flex; align-items:center; gap:7px; max-width:195px; padding:6px 9px; border:1px solid transparent; border-radius:7px; font-size:10px; font-weight:650; line-height:1.45; }
+    .service-status { display:inline-flex; align-items:center; gap:7px; max-width:195px; padding:6px 9px; border:1px solid transparent; border-radius:7px; font-size:10px; font-weight:650; line-height:1.45; white-space:normal; }
     .service-status::before { content:""; width:5px; height:5px; border-radius:50%; background:currentColor; flex:0 0 auto; }
     .service-status.status-submitted { color:#87652a; background:#f9f2df; border-color:#eadbb8; }
     .service-status.status-assigned { color:#35658b; background:#edf4f9; border-color:#d3e3ee; }
     .service-status.status-kit_sent { color:#655393; background:#f2eff9; border-color:#ded7ef; }
     .service-status.status-customer_sent { color:#27717b; background:#eaf6f6; border-color:#cfe8e8; }
     .service-status.status-received { color:#9a5b2e; background:#fbf0e7; border-color:#efd8c7; }
-    .service-status.status-payment { color:#765085; background:#f3ecf7; border-color:#dfd1e7; }
+    .service-status.status-parts_ordering { color:#765085; background:#f3ecf7; border-color:#dfd1e7; }
+    .service-status.status-repairing { color:#236790; background:#e9f3f9; border-color:#c9dfed; }
+    .service-status.status-repair_completed { color:#34715f; background:#eaf5f1; border-color:#cde6dd; }
     .service-status.status-return_sent { color:#455c8b; background:#edf0f8; border-color:#d5dced; }
     .service-status.status-completed { color:#4f7057; background:#edf4ef; border-color:#d4e4d8; }
     .service-status.status-rejected { color:#9d4b45; background:#f8ecea; border-color:#eed2cf; }
@@ -1904,7 +1906,7 @@
     .service-detail-title h1 { font-size:24px; font-weight:600; }
     .service-detail-title p { color:var(--muted); font-size:11px; margin-top:7px; }
     .service-detail-actions { display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
-    .service-workflow { display:grid; grid-template-columns:repeat(8,minmax(0,1fr)); position:relative; padding:20px 10px; margin-bottom:22px; }
+    .service-workflow { display:grid; grid-template-columns:repeat(var(--service-step-count,9),minmax(0,1fr)); position:relative; padding:20px 10px; margin-bottom:22px; }
     .service-workflow::before { content:""; position:absolute; top:37px; left:6%; right:6%; height:1px; background:#dcd9d1; }
     .service-step { position:relative; z-index:1; text-align:center; color:#9b998f; }
     .service-step span { width:34px; height:34px; margin:0 auto 8px; border-radius:50%; border:1px solid #d7d4ca; background:#fff; display:grid; place-items:center; font-size:10px; }
@@ -1931,6 +1933,7 @@
     .service-action-controls label { min-width:0; }
     .service-action-panel .control { width:100%; margin-bottom:0; }
     .service-action-panel .btn { width:100%; min-height:42px; justify-content:center; }
+    .service-action-choice { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
     .service-confirm-row { min-height:48px; padding:11px 13px; display:flex; align-items:center; gap:10px; color:var(--muted); background:#fff; border:1px solid var(--line); border-radius:8px; font-size:10px; line-height:1.5; cursor:pointer; }
     .service-confirm-row input { width:16px; height:16px; margin:0; accent-color:var(--forest); }
     .service-history { list-style:none; padding:0; margin:0; }
@@ -1944,8 +1947,8 @@
     .service-role-switch { display:inline-flex; border:1px solid var(--line); border-radius:6px; overflow:hidden; }
     .service-role-switch button { border:0; background:#fff; padding:8px 12px; font-size:10px; color:var(--muted); }
     .service-role-switch button.is-active { background:#171717; color:#fff; }
-    @media(max-width:1050px){.service-filter-grid{grid-template-columns:1fr 1fr}.service-filter-actions{grid-column:1/-1;justify-content:flex-end}.service-detail-grid{grid-template-columns:1fr}.service-workflow{overflow:auto;grid-template-columns:repeat(8,105px)}}
-    @media(max-width:720px){.service-filter-grid{grid-template-columns:1fr}.service-filter-actions{justify-content:stretch}.service-filter-actions .btn{flex:1}}
+    @media(max-width:1050px){.service-filter-grid{grid-template-columns:1fr 1fr}.service-filter-actions{grid-column:1/-1;justify-content:flex-end}.service-detail-grid{grid-template-columns:1fr}.service-workflow{overflow:auto;grid-template-columns:repeat(var(--service-step-count,9),105px)}}
+    @media(max-width:720px){.service-filter-grid{grid-template-columns:1fr}.service-filter-actions{justify-content:stretch}.service-filter-actions .btn{flex:1}.service-action-choice{grid-template-columns:1fr}}
   </style>
 </head>
 <body>
@@ -2381,7 +2384,7 @@
           <label class="wide"><span class="field-label">门店服务说明</span><textarea class="control" id="editServiceNote" rows="3"></textarea></label>
           <label class="wide"><span class="field-label">作品收件图片</span><input class="control" id="editServiceReceivedImages" type="file" accept="image/jpeg,image/png,image/webp" multiple><small class="scope-note">重新选择会替换收件节点图片；未选择则保留。</small></label>
           <div class="wide service-image-grid" id="editServiceReceivedImagePreview"></div>
-          <label class="wide"><span class="field-label">售后完成图片</span><input class="control" id="editServiceImages" type="file" accept="image/jpeg,image/png,image/webp" multiple><small class="scope-note">重新选择会替换售后完成节点图片；未选择则保留。</small></label>
+          <label class="wide"><span class="field-label">维修完成图片</span><input class="control" id="editServiceImages" type="file" accept="image/jpeg,image/png,image/webp" multiple><small class="scope-note">重新选择会替换维修完成节点图片；未选择则保留。</small></label>
           <div class="wide service-image-grid" id="editServiceImagePreview"></div>
           <div class="wide service-error" id="serviceEditError" role="alert" hidden></div>
         </div>

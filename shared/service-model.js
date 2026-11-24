@@ -1,7 +1,8 @@
 (function (root) {
   'use strict';
-  const KEY = 'sowind.aftersales.v4';
-  const PREVIOUS = 'sowind.aftersales.v3';
+  const KEY = 'sowind.aftersales.v5';
+  const PREVIOUS = 'sowind.aftersales.v4';
+  const OLDER = 'sowind.aftersales.v3';
   const LEGACY = 'sowind.crm.v1.13.3.aftersales';
   const EVENT = 'sowind:services-changed';
   const statusCatalog = {
@@ -9,10 +10,12 @@
     assigned: {label:'门店跟进中',tone:'active',order:1},
     kit_sent: {label:'专属配件已寄送',tone:'active',order:2},
     customer_sent: {label:'作品已发回',tone:'active',order:3},
-    received: {label:'作品已收到，待售后',tone:'active',order:4},
-    payment: {label:'作品已完成售后，待付款',tone:'payment',order:5},
-    return_sent: {label:'作品已寄回，待签收',tone:'active',order:6},
-    completed: {label:'服务完成',tone:'complete',order:7},
+    received: {label:'作品已收到，待报价/付款',tone:'quote',order:4},
+    parts_ordering: {label:'作品报价/付款已确认，订零件中',tone:'parts',order:5},
+    repairing: {label:'作品报价/付款已确认，正在维修中',tone:'repairing',order:6},
+    repair_completed: {label:'作品维修完成，待寄回',tone:'ready',order:7},
+    return_sent: {label:'作品已寄回，待签收',tone:'active',order:8},
+    completed: {label:'服务完成',tone:'complete',order:9},
     rejected: {label:'已拒绝',tone:'rejected',order:-1},
     cancelled: {label:'已取消',tone:'cancelled',order:-1}
   };
@@ -76,8 +79,10 @@
       assigned:'尊敬客户，您的售后服务将由 '+store+' 继续跟进，请等待门店顾问联系您',
       kit_sent:'尊敬客户，您的专属配件已从门店寄送，快递单号：'+item.kitTracking+'。如有疑问请联系 '+store+'。',
       customer_sent:'尊敬客户，您的作品已发回，快递单号'+item.inboundTracking+'。待我们收到您的作品后，将竭诚为您服务。',
-      received:'尊敬客户，门店已收到您的作品，我们即将按您的要求完成作品的售后。如您有疑问，您可联系 '+store+'。',
-      payment:'尊敬客户，门店已为您完成腕表的售后，待'+store+'联系您并完成付款后，我们将按照您预约信息的地址寄回作品。'+(item.serviceNote?'\n服务说明：'+item.serviceNote:''),
+      received:'尊敬客户，门店已收到您的作品，正在检查并准备报价。请等待 '+store+' 与您确认报价及付款。如您有疑问，可联系负责门店。',
+      parts_ordering:'尊敬客户，您的服务报价及付款已确认。由于维修需要相关零件，门店正在为您订购，零件到货后将安排维修。服务报价：'+item.quote+'。',
+      repairing:'尊敬客户，您的服务报价及付款已确认，作品正在维修中。维修过程预计需要一定时间，如有疑问可联系 '+store+'。服务报价：'+item.quote+'。',
+      repair_completed:'尊敬客户，您的作品已完成维修，门店将按照预约信息中的地址安排寄回。'+(item.serviceNote?'\n服务说明：'+item.serviceNote:'')+(item.quoteAmount!=null?'\n服务报价：'+item.quote:''),
       return_sent:'尊敬客户，您的作品已按照预约信息的地址寄回，快递单号：'+item.outboundTracking+'。感谢您的信赖。',
       completed:'您已确认收到作品，售后服务已完成。感谢您的信赖。',
       rejected:'您的申请未通过审核：'+item.rejectionReason,
@@ -92,7 +97,7 @@
   }
   function newTicket(input) {
     const time = now(), brand = input.brand;
-    return {id:brand+'AS'+randomDigits(),brand,customerId:input.customerId||'demo-'+brand,customer:'',salutation:'先生',lastName:'',firstName:'',phone:'',reference:'',serial:'',reason:'',description:'',kitAddress:'',returnAddress:'',store:'未分配',storePhone:'',advisor:'未分配',kitTracking:'',inboundTracking:'',outboundTracking:'',quoteAmount:null,quote:'—',serviceNote:'',receivedImages:[],serviceImages:[],rejectionReason:'',cancelReason:'',...input,status:'submitted',created:time,updated:time,history:[]};
+    return {id:brand+'AS'+randomDigits(),brand,customerId:input.customerId||'demo-'+brand,customer:'',salutation:'先生',lastName:'',firstName:'',phone:'',reference:'',serial:'',reason:'',description:'',kitAddress:'',returnAddress:'',store:'未分配',storePhone:'',advisor:'未分配',kitTracking:'',inboundTracking:'',outboundTracking:'',quoteAmount:null,quote:'—',paymentConfirmed:false,serviceNote:'',receivedImages:[],serviceImages:[],rejectionReason:'',cancelReason:'',...input,status:'submitted',created:time,updated:time,history:[]};
   }
   function seed() {
     return ['GP','UN'].map(brand=>{
@@ -102,22 +107,29 @@
       return item;
     });
   }
+  const migratedStatus = status => status === 'payment' ? 'repair_completed' : status;
+  const oldStatusLabels = {received:'作品已收到，待售后',payment:'作品已完成售后，待付款'};
   function migrate(items) {
     const used = new Set();
-    return items.filter(item=>item && statusCatalog[item.status] && ['GP','UN'].includes(item.brand)).map(old=>{
-      const item={...newTicket(old),status:old.status,created:old.created,updated:old.updated,history:old.history||[],customerId:old.customerId||(old.customer==='梁桐 先生'?'demo-'+old.brand:'legacy-'+old.id)};
+    return items.filter(item=>item && statusCatalog[migratedStatus(item.status)] && ['GP','UN'].includes(item.brand)).map(old=>{
+      const status=migratedStatus(old.status);
+      const item={...newTicket(old),status,created:old.created,updated:old.updated,history:old.history||[],customerId:old.customerId||(old.customer==='梁桐 先生'?'demo-'+old.brand:'legacy-'+old.id),paymentConfirmed:old.paymentConfirmed===true};
       const oldId=clean(old.id), pattern=new RegExp('^'+item.brand+'AS\\d{10}$');
       item.id=pattern.test(oldId)&&!used.has(oldId)?oldId:nextTicketId(item.brand,used);used.add(item.id);
       const numeric=Number(String(old.quote||'').replace(/[^0-9.]/g,''));
       item.quoteAmount=old.quoteAmount ?? (old.quote && old.quote!=='—' && Number.isFinite(numeric)?numeric:null);
       item.receivedImages=(old.receivedImages||[]).filter(v=>v && typeof v==='object' && v.dataUrl);
       item.serviceImages=(old.serviceImages||[]).filter(v=>v && typeof v==='object' && v.dataUrl);
-      item.history=item.history.map(h=>({...h,id:h.id||uid(),actor:h.actor||'admin',status:h.status||old.status}));
+      item.history=item.history.map(h=>{
+        const oldStatus=h.status||old.status,mapped=migratedStatus(oldStatus);
+        const replaceTitle=!h.title||h.title===oldStatusLabels[oldStatus];
+        return {...h,id:h.id||uid(),actor:h.actor||'admin',status:mapped,title:replaceTitle?statusCatalog[mapped].label:h.title};
+      });
       return item;
     });
   }
   function write(items) {
-    try { root.localStorage.setItem(KEY,JSON.stringify({version:4,tickets:items})); }
+    try { root.localStorage.setItem(KEY,JSON.stringify({version:5,tickets:items})); }
     catch (_) { fail('无法保存工单：浏览器存储不可用或空间不足，请减少图片后重试'); }
     root.dispatchEvent(new Event(EVENT));
   }
@@ -126,14 +138,16 @@
     try {saved=root.localStorage.getItem(KEY);} catch (_) {fail('无法读取浏览器中的工单数据');}
     if(saved!=null){
       let parsed; try {parsed=JSON.parse(saved);} catch (_) {fail('工单数据损坏，请先备份浏览器数据后联系管理员');}
-      if(parsed.version!==4 || !Array.isArray(parsed.tickets)) fail('工单数据版本不兼容');
+      if(parsed.version!==5 || !Array.isArray(parsed.tickets)) fail('工单数据版本不兼容');
       return parsed.tickets;
     }
     let previous=[];
-    try {const old=JSON.parse(root.localStorage.getItem(PREVIOUS));if(old&&old.version===3&&Array.isArray(old.tickets))previous=migrate(old.tickets);} catch (_) { /* Keep previous data untouched; initialize this version separately. */ }
+    try {const old=JSON.parse(root.localStorage.getItem(PREVIOUS));if(old&&old.version===4&&Array.isArray(old.tickets))previous=migrate(old.tickets);} catch (_) { /* Keep previous data untouched; initialize this version separately. */ }
+    let older=[];
+    try {const old=JSON.parse(root.localStorage.getItem(OLDER));if(old&&old.version===3&&Array.isArray(old.tickets))older=migrate(old.tickets);} catch (_) { /* Keep previous data untouched; initialize this version separately. */ }
     let legacy=[];
     try {const old=JSON.parse(root.localStorage.getItem(LEGACY));if(Array.isArray(old))legacy=migrate(old);} catch (_) { /* Keep old data untouched; initialize this version separately. */ }
-    const items=previous.length?previous:legacy.length?legacy:seed();
+    const items=previous.length?previous:older.length?older:legacy.length?legacy:seed();
     for(const sample of seed())if(!items.some(t=>t.customerId===sample.customerId))items.push(sample);
     write(items);return items;
   }
@@ -163,7 +177,7 @@
   }
   function transition(id,action,data={},actor='admin') {
     const items=read(),item=items.find(t=>t.id===id);if(!item)fail('工单不存在');
-    const transitions={approve:['submitted','assigned'],reject:['submitted','rejected'],'send-kit':['assigned','kit_sent'],'send-watch':['kit_sent','customer_sent'],receive:['customer_sent','received'],'finish-service':['received','payment'],'return-watch':['payment','return_sent'],complete:['return_sent','completed']};
+    const transitions={approve:['submitted','assigned'],reject:['submitted','rejected'],'send-kit':['assigned','kit_sent'],'send-watch':['kit_sent','customer_sent'],receive:['customer_sent','received'],'start-parts':['received','parts_ordering'],'start-repair':['received','repairing'],'parts-arrived':['parts_ordering','repairing'],'finish-repair':['repairing','repair_completed'],'return-watch':['repair_completed','return_sent'],complete:['return_sent','completed']};
     if(actor==='customer'&&!['send-watch','complete','cancel'].includes(action))fail('当前操作仅供管理员处理');
     if(action==='cancel'){if(!canCancel(item))fail('当前阶段无法取消预约，请联系负责门店');item.cancelReason=clean(data.cancelReason);item.status='cancelled';}
     else {
@@ -177,10 +191,18 @@
       if(action==='receive'){
         item.receivedImages=pictures(data.receivedImages||[]);if(!item.receivedImages.length)fail('请上传至少一张作品收件图片');
       }
-      if(action==='finish-service'){
+      if(action==='start-parts'||action==='start-repair'){
         item.quoteAmount=amount(data.quoteAmount);if(item.quoteAmount==null)fail('请填写服务报价');
+        if(data.paymentConfirmed!==true)fail('请确认客户已完成报价及付款');
+        item.paymentConfirmed=true;
+      }
+      if(action==='finish-repair'){
         item.serviceNote=clean(data.serviceNote);if(!item.serviceNote)fail('请填写服务说明');
-        item.serviceImages=pictures(data.serviceImages||[]);if(!item.serviceImages.length)fail('请上传至少一张售后完成图片');
+        item.serviceImages=pictures(data.serviceImages||[]);if(!item.serviceImages.length)fail('请上传至少一张维修完成图片');
+      }
+      if(action==='return-watch'&&item.paymentConfirmed!==true){
+        if(data.paymentConfirmed!==true)fail('请确认客户已完成报价及付款');
+        item.paymentConfirmed=true;
       }
       item.status=next[1];
     }

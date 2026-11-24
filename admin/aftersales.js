@@ -7,7 +7,7 @@
     return;
   }
   var statuses = service.statusCatalog;
-  var flow = ["submitted", "assigned", "kit_sent", "customer_sent", "received", "payment", "return_sent", "completed"];
+  var requiredFlow = ["submitted", "assigned", "kit_sent", "customer_sent", "received", "repairing", "repair_completed", "return_sent", "completed"];
   var role = "ADMIN", selectedId = null, editingVersion = null, editingId = null, renderedVersion = null;
   var imageCache = [], pendingEditReceivedImages = null, pendingEditServiceImages = null, pendingReceivedImages = null, pendingRepairImages = null, imageReadVersion = 0, editImageReadVersion = 0, editImageReadPending = 0;
   var stores = ["上海南京西路形象店", "上海恒隆广场精品店", "北京国贸商城精品店", "深圳万象城精品店"];
@@ -58,8 +58,8 @@
   function renderMetrics() {
     var items = all().filter(inScope);
     $("serviceMetricTotal").textContent = items.length;
-    $("serviceMetricPending").textContent = items.filter(function (item) { return ["submitted", "payment"].includes(item.status); }).length;
-    $("serviceMetricActive").textContent = items.filter(function (item) { return ["assigned", "kit_sent", "customer_sent", "received", "return_sent"].includes(item.status); }).length;
+    $("serviceMetricPending").textContent = items.filter(function (item) { return ["submitted", "received", "repair_completed"].includes(item.status); }).length;
+    $("serviceMetricActive").textContent = items.filter(function (item) { return ["assigned", "kit_sent", "customer_sent", "parts_ordering", "repairing", "return_sent"].includes(item.status); }).length;
     $("serviceMetricComplete").textContent = items.filter(function (item) { return item.status === "completed"; }).length;
     $("serviceNavCount").textContent = all().length;
   }
@@ -101,17 +101,22 @@
     }
     if (item.status === "assigned") return { description: "专属服务套件寄出后录入物流单号，客户可在工单记录中查看。", html: input("serviceKitTracking", "专属套件物流单号", "", 'placeholder="请输入快递单号"') + actionButton("send-kit", "确认寄出套件") };
     if (item.status === "kit_sent") return { description: "客户可在预约信息页填写寄出作品的快递单号；收到客户通知后，也可在此代录。", html: input("serviceInboundTracking", "客户寄出作品物流单号", "", 'placeholder="请输入客户提供的快递单号"') + actionButton("send-watch", "记录作品已发回") };
-    if (item.status === "customer_sent") return { description: "核对客户寄出的作品和物流信息，上传收件凭证后确认收件。该图片会显示在“作品已收到，待售后”节点。", html:
+    if (item.status === "customer_sent") return { description: "核对客户寄出的作品和物流信息，上传收件凭证后确认收件。该图片会显示在“作品已收到，待报价/付款”节点。", html:
       '<label><span class="field-label">作品收件图片</span><input class="control" id="serviceReceivedImages" type="file" accept="image/jpeg,image/png,image/webp" multiple><small class="scope-note">必传，最多4张，每张不超过600KB，合计不超过1.5MB。</small></label><div id="serviceReceivedPreview">' + imageGrid(item.receivedImages) + '</div>'
       + actionButton("receive", "上传图片并确认收件") };
-    if (item.status === "received") return { description: "录入服务报价、客户可见的服务说明和售后完成图片，完成后将更新客户工单记录。", html:
+    if (item.status === "received") return { description: "先录入报价并确认客户已付款，再根据检测结果选择订购零件或直接开始维修。", html:
       input("serviceQuote", "服务报价（元）", item.quoteAmount == null ? "" : item.quoteAmount, 'inputmode="decimal" placeholder="请输入报价金额"')
-      + '<label><span class="field-label">服务说明（客户可见）</span><textarea class="control" id="serviceNote" rows="4" placeholder="填写已完成的服务内容">' + esc(item.serviceNote === "—" ? "" : item.serviceNote) + '</textarea></label>'
-      + '<label><span class="field-label">售后完成图片</span><input class="control" id="serviceRepairImages" type="file" accept="image/jpeg,image/png,image/webp" multiple><small class="scope-note">必传，最多4张，每张不超过600KB，合计不超过1.5MB。该图片与收件图片分开保存。</small></label><div id="serviceRepairPreview">' + imageGrid(item.serviceImages) + '</div>'
-      + actionButton("finish-service", "提交报价与服务结果") };
-    if (item.status === "payment") return { description: "确认收到线下转账后，录入寄回作品的快递单号。客户随后可确认签收。", html:
-      '<label class="service-confirm-row"><input type="checkbox" id="servicePaymentConfirmed"><span>已核实收到客户线下付款</span></label>'
-      + input("serviceOutboundTracking", "作品寄回物流单号", "", 'placeholder="请输入快递单号"') + actionButton("return-watch", "确认收款并寄回") };
+      + '<label class="service-confirm-row"><input type="checkbox" id="servicePaymentConfirmed"' + (item.paymentConfirmed ? ' checked' : '') + '><span>已与客户确认报价并核实收到付款</span></label>'
+      + '<div class="service-action-choice">' + actionButton("start-parts", "确认付款并订零件") + actionButton("start-repair", "确认付款并开始维修") + '</div>' };
+    if (item.status === "parts_ordering") return { description: "已确认报价与付款，正在等待订购零件。零件到货并核验无误后再开始维修。", html:
+      actionButton("parts-arrived", "零件已到货，开始维修") };
+    if (item.status === "repairing") return { description: "维修完成后填写客户可见的服务说明，并上传维修完成图片。该图片与收件图片独立保存。", html:
+      '<label><span class="field-label">服务说明（客户可见）</span><textarea class="control" id="serviceNote" rows="4" placeholder="填写已完成的服务内容">' + esc(item.serviceNote === "—" ? "" : item.serviceNote) + '</textarea></label>'
+      + '<label><span class="field-label">维修完成图片</span><input class="control" id="serviceRepairImages" type="file" accept="image/jpeg,image/png,image/webp" multiple><small class="scope-note">必传，最多4张，每张不超过600KB，合计不超过1.5MB。该图片与收件图片分开保存。</small></label><div id="serviceRepairPreview">' + imageGrid(item.serviceImages) + '</div>'
+      + actionButton("finish-repair", "提交维修结果") };
+    if (item.status === "repair_completed") return { description: "作品维修已完成，录入寄回作品的快递单号。客户随后可在预约详情中确认签收。", html:
+      (item.paymentConfirmed ? '' : '<label class="service-confirm-row"><input type="checkbox" id="serviceLegacyPaymentConfirmed"><span>已核实历史工单的报价与付款</span></label>')
+      + input("serviceOutboundTracking", "作品寄回物流单号", "", 'placeholder="请输入快递单号"') + actionButton("return-watch", "录入物流并确认寄回") };
     if (item.status === "return_sent") return { description: "客户可在预约详情确认收到作品；收到客户确认后，也可在此代为登记。", html: '<label class="service-confirm-row"><input type="checkbox" id="serviceReceiptConfirmed"><span>已与客户核实作品签收</span></label>' + actionButton("complete", "确认客户已签收") };
     return { description: item.status === "rejected" ? "申请已拒绝，原因已同步给客户。" : item.status === "cancelled" ? "客户已取消预约，工单记录已保留。" : "客户已签收作品，售后服务已完成。", html: '<button class="btn" disabled>' + (item.status === "completed" ? '服务已完成' : '工单已结束') + '</button>' };
   }
@@ -124,12 +129,16 @@
     $("serviceDetailNo").textContent = item.id;
     $("serviceDetailSubtitle").textContent = brandLabel(item.brand) + " · 创建于 " + item.created;
     $("serviceDetailHeadActions").innerHTML = '<button class="btn" data-service-edit><svg><use href="#i-edit"></use></svg>编辑工单</button>' + badge(item);
+    var usedPartsBranch = item.status === "parts_ordering" || (item.history || []).some(function (entry) { return entry.status === "parts_ordering"; });
+    var flow = requiredFlow.slice();
+    if (usedPartsBranch) flow.splice(flow.indexOf("repairing"), 0, "parts_ordering");
     var current = flow.indexOf(item.status);
+    $("serviceWorkflow").style.setProperty("--service-step-count", flow.length);
     $("serviceWorkflow").innerHTML = flow.map(function (status, index) { return '<div class="service-step' + (index < current ? ' is-done' : index === current ? ' is-current' : '') + '"><span>' + (index + 1) + '</span><small>' + esc(statuses[status].label) + '</small></div>'; }).join("");
     $("serviceCustomerFields").innerHTML = field("客户", customer(item)) + field("手机号", item.phone) + field("作品型号", item.reference) + field("作品编号", item.serial) + field("专属套件寄送地址", item.kitAddress, true) + field("作品寄回地址", item.returnAddress, true);
     $("serviceInfoFields").innerHTML = field("品牌", brandLabel(item.brand)) + field("售后原因", item.reason) + field("负责门店", item.store) + field("门店联系电话", item.storePhone) + field("专属顾问", item.advisor) + field("客户说明", item.description, true) + field("门店服务说明（客户可见）", item.serviceNote, true)
       + (item.rejectionReason ? field("拒绝原因", item.rejectionReason, true) : "") + (item.cancelReason ? field("取消原因", item.cancelReason, true) : "");
-    $("serviceLogistics").innerHTML = '<article><strong>专属服务套件</strong><span>' + esc(item.kitTracking || "尚未寄出") + '</span></article><article><strong>客户寄出作品</strong><span>' + esc(item.inboundTracking || "尚未录入") + '</span></article><article><strong>作品收件图片</strong>' + (item.receivedImages && item.receivedImages.length ? imageGrid(item.receivedImages) : '<span>尚未上传</span>') + '</article><article><strong>服务报价</strong><span>' + esc(item.quoteAmount == null ? "待门店检测后更新" : "¥" + Number(item.quoteAmount).toLocaleString("zh-CN")) + '</span></article><article><strong>售后完成图片</strong>' + (item.serviceImages && item.serviceImages.length ? imageGrid(item.serviceImages) : '<span>尚未上传</span>') + '</article><article><strong>作品寄回</strong><span>' + esc(item.outboundTracking || "尚未寄出") + '</span></article>';
+    $("serviceLogistics").innerHTML = '<article><strong>专属服务套件</strong><span>' + esc(item.kitTracking || "尚未寄出") + '</span></article><article><strong>客户寄出作品</strong><span>' + esc(item.inboundTracking || "尚未录入") + '</span></article><article><strong>作品收件图片</strong>' + (item.receivedImages && item.receivedImages.length ? imageGrid(item.receivedImages) : '<span>尚未上传</span>') + '</article><article><strong>服务报价 / 付款</strong><span>' + esc(item.quoteAmount == null ? "待门店检测后更新" : "¥" + Number(item.quoteAmount).toLocaleString("zh-CN") + (item.paymentConfirmed ? " · 已确认付款" : " · 待确认付款")) + '</span></article><article><strong>维修完成图片</strong>' + (item.serviceImages && item.serviceImages.length ? imageGrid(item.serviceImages) : '<span>尚未上传</span>') + '</article><article><strong>作品寄回</strong><span>' + esc(item.outboundTracking || "尚未寄出") + '</span></article>';
     var action = actions(item); $("serviceActionDescription").textContent = action.description; $("serviceActionControls").innerHTML = action.html;
     $("serviceHistory").innerHTML = (item.history || []).slice().reverse().map(function (log) { return '<li><strong>' + esc(log.title) + '</strong><span>' + esc(log.time) + ' · ' + esc(log.actor === "customer" ? "客户" : "管理员") + '</span><p>' + esc(log.note) + '</p></li>'; }).join("");
   }
@@ -162,14 +171,21 @@
         data.receivedImages = pendingReceivedImages === null ? item.receivedImages : pendingReceivedImages;
         if (!data.receivedImages || !data.receivedImages.length) throw new Error("请上传至少一张作品收件图片。");
       }
-      else if (action === "finish-service") {
+      else if (action === "start-parts" || action === "start-repair") {
         data.quoteAmount = parseQuote($("serviceQuote").value, true);
+        if (!$("servicePaymentConfirmed").checked) throw new Error("请先与客户确认报价并核实收到付款。");
+        data.paymentConfirmed = true;
+      }
+      else if (action === "finish-repair") {
         data.serviceNote = $("serviceNote").value.trim();
         data.serviceImages = pendingRepairImages === null ? item.serviceImages : pendingRepairImages;
         if (!data.serviceNote) throw new Error("请填写服务说明。");
-        if (!data.serviceImages || !data.serviceImages.length) throw new Error("请上传至少一张售后完成图片。");
+        if (!data.serviceImages || !data.serviceImages.length) throw new Error("请上传至少一张维修完成图片。");
       } else if (action === "return-watch") {
-        if (!$("servicePaymentConfirmed").checked) throw new Error("请先核实收到客户线下付款。");
+        if (!item.paymentConfirmed) {
+          if (!$("serviceLegacyPaymentConfirmed").checked) throw new Error("请先核实历史工单的报价与付款。");
+          data.paymentConfirmed = true;
+        }
         data.outboundTracking = $("serviceOutboundTracking").value.trim();
       } else if (action === "complete" && !$("serviceReceiptConfirmed").checked) throw new Error("请先与客户核实作品签收。");
       service.transition(item.id, apiAction, data, "admin");
@@ -202,7 +218,7 @@
       ["lastName", "customer", "phone", "reference", "serial", "kitAddress", "returnAddress"].forEach(function (key) { if (!patch[key]) throw new Error("客户姓氏、联系电话、作品信息及两个地址均不能为空。"); });
       if (role !== "ADMIN") patch.store = item.store;
       patch.quoteAmount = parseQuote($("editServiceQuote").value, false);
-      if (["payment", "return_sent", "completed"].includes(item.status) && patch.quoteAmount == null) throw new Error("已完成售后的工单需要保留服务报价。");
+      if (["parts_ordering", "repairing", "repair_completed", "return_sent", "completed"].includes(item.status) && patch.quoteAmount == null) throw new Error("已确认报价的工单需要保留服务报价。");
       if (pendingEditReceivedImages !== null) patch.receivedImages = pendingEditReceivedImages;
       if (pendingEditServiceImages !== null) patch.serviceImages = pendingEditServiceImages;
       service.updateTicket(item.id, patch, "admin");

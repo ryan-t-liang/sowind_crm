@@ -23,6 +23,8 @@ const brands = [
 
 const seedId = brand => `${brand}AS1234567890`;
 const pixel = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
+const repairPixel = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8zwAAAgEBALNn8ZsAAAAASUVORK5CYII=';
+const productSources = new Map();
 
 function serialized(value) {
   return JSON.stringify(value, null, 2);
@@ -250,8 +252,41 @@ async function assertHeaderFits(page, label) {
   await assertDocumentFits(page, label);
 }
 
+async function assertProductImage(page, brand, label) {
+  const images = page.locator('.product-confirm img');
+  assert.equal(await images.count(), 1, `${label} should render exactly one product image`);
+  const image = images.first();
+  await image.waitFor({ state: 'visible' });
+  await image.evaluate(async element => {
+    if (!element.complete || element.naturalWidth === 0) await element.decode();
+  });
+  const metrics = await image.evaluate(element => {
+    const rect = element.getBoundingClientRect();
+    const card = element.closest('.product-confirm').getBoundingClientRect();
+    return {
+      complete: element.complete,
+      naturalWidth: element.naturalWidth,
+      naturalHeight: element.naturalHeight,
+      alt: element.getAttribute('alt') || '',
+      src: element.currentSrc || element.src,
+      rect: { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom, width: rect.width, height: rect.height },
+      card: { left: card.left, top: card.top, right: card.right, bottom: card.bottom },
+    };
+  });
+  assert(metrics.complete && metrics.naturalWidth > 0 && metrics.naturalHeight > 0, `${label} product image should load\n${serialized(metrics)}`);
+  assert(metrics.alt.trim(), `${label} product image should expose a meaningful alt`);
+  assert(metrics.rect.width > 0 && metrics.rect.height > 0, `${label} product image should occupy visible space`);
+  assert(
+    metrics.rect.left >= metrics.card.left - epsilon && metrics.rect.right <= metrics.card.right + epsilon &&
+      metrics.rect.top >= metrics.card.top - epsilon && metrics.rect.bottom <= metrics.card.bottom + epsilon,
+    `${label} product image should remain inside its confirmation card\n${serialized(metrics)}`,
+  );
+  if (productSources.has(brand)) assert.equal(productSources.get(brand), metrics.src, `${brand} product image source should stay stable across viewports`);
+  else productSources.set(brand, metrics.src);
+}
+
 async function advanceSeed(page, brand, actions) {
-  await page.evaluate(({ id, actions, image }) => {
+  await page.evaluate(({ id, actions, image, completedImage }) => {
     const service = window.SowindService;
     for (const action of actions) {
       if (action === 'approve') {
@@ -268,17 +303,23 @@ async function advanceSeed(page, brand, actions) {
         service.transition(id, action, {
           receivedImages: [{ id: 'received-mobile', name: '收件图片.png', dataUrl: image }],
         }, 'admin');
-      } else if (action === 'finish-service') {
+      } else if (action === 'start-parts' || action === 'start-repair') {
         service.transition(id, action, {
           quoteAmount: 1234,
+          paymentConfirmed: true,
+        }, 'admin');
+      } else if (action === 'parts-arrived') {
+        service.transition(id, action, {}, 'admin');
+      } else if (action === 'finish-repair') {
+        service.transition(id, action, {
           serviceNote: '移动端弹层几何回归',
-          serviceImages: [{ id: 'service-mobile', name: '售后完成图片.png', dataUrl: image }],
+          serviceImages: [{ id: 'service-mobile', name: '售后完成图片.png', dataUrl: completedImage }],
         }, 'admin');
       } else if (action === 'return-watch') {
         service.transition(id, action, { outboundTracking: 'SF-OUT-MOBILE-01' }, 'admin');
       }
     }
-  }, { id: seedId(brand), actions, image: pixel });
+  }, { id: seedId(brand), actions, image: pixel, completedImage: repairPixel });
 }
 
 async function exerciseOverlays(page, brand, route, viewportName) {
@@ -310,6 +351,7 @@ async function exerciseOverlays(page, brand, route, viewportName) {
   await page.getByRole('textbox', { name: '作品编号', exact: true }).fill(`${brand}MOBILE20261124`);
   await page.getByRole('button', { name: '下一步', exact: true }).click();
   await assertDialog(page, `${prefix}: product confirmation sheet`, { bottomSheet: true });
+  await assertProductImage(page, brand, `${prefix}: product confirmation sheet`);
   await page.getByRole('button', { name: '确定', exact: true }).click();
 
   await selectAndAssert(page, '选择售后原因*', '全面保养服务', prefix);
@@ -344,9 +386,22 @@ async function exerciseOverlays(page, brand, route, viewportName) {
   await assertDialog(page, `${prefix}: returned tracking entry sheet`, { bottomSheet: true });
   await page.keyboard.press('Escape');
 
-  await advanceSeed(page, brand, ['send-watch', 'receive', 'finish-service']);
+  const repairPath = brand === 'UN'
+    ? ['send-watch', 'receive', 'start-parts', 'parts-arrived', 'finish-repair']
+    : ['send-watch', 'receive', 'start-repair', 'finish-repair'];
+  await advanceSeed(page, brand, repairPath);
   await page.goto(`${mobileUrl}#/record/${seedId(brand)}`, { waitUntil: 'networkidle' });
+  await page.locator('.appointment-info').getByText('作品维修完成，待寄回', { exact: true }).waitFor();
   await page.getByRole('button', { name: '工单记录', exact: true }).click();
+  for (const status of ['作品已收到，待报价/付款', '作品报价/付款已确认，正在维修中', '作品维修完成，待寄回']) {
+    assert.equal(await page.locator('.ticket-timeline li').filter({ hasText: status }).count(), 1, `${prefix}: timeline should contain ${status} exactly once`);
+  }
+  if (brand === 'UN') assert.equal(await page.locator('.ticket-timeline li').filter({ hasText: '作品报价/付款已确认，订零件中' }).count(), 1, `${prefix}: parts branch should be visible exactly once`);
+  const receivedImage = page.locator('.ticket-timeline li').filter({ hasText: '作品已收到，待报价/付款' }).locator('.timeline-images img').first();
+  const repairImage = page.locator('.ticket-timeline li').filter({ hasText: '作品维修完成，待寄回' }).locator('.timeline-images img').first();
+  await receivedImage.waitFor();
+  await repairImage.waitFor();
+  assert.notEqual(await receivedImage.getAttribute('src'), await repairImage.getAttribute('src'), `${prefix}: received and repair-completion images should be independent`);
   await page.locator('.timeline-images button').first().click();
   await page.getByRole('heading', { name: '服务图片', exact: true }).waitFor();
   await assertDialog(page, `${prefix}: service image preview dialog`);
@@ -407,6 +462,9 @@ async function exerciseOverlays(page, brand, route, viewportName) {
       }
     }
   }
+
+  assert(productSources.has('GP') && productSources.has('UN'), 'Both brands should expose product imagery');
+  assert.notEqual(productSources.get('GP'), productSources.get('UN'), 'GP and UN confirmation cards should use different product images');
 
   await browser.close();
   const report = {
