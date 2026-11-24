@@ -1848,20 +1848,41 @@
     /* v1.13.3 after-sales module: additive styles only. */
     .service-page .page-heading { margin-bottom: 22px; }
     .service-metrics { grid-template-columns: repeat(4,minmax(0,1fr)); }
-    .service-filter-grid { display:grid; grid-template-columns:1.35fr .65fr 1fr .85fr .75fr .75fr auto; gap:12px; align-items:end; }
+    .service-filter-grid { display:grid; grid-template-columns:minmax(135px,.6fr) minmax(260px,1.55fr) minmax(145px,.65fr) minmax(210px,1fr) auto; gap:12px; align-items:end; padding:16px; }
     .service-filter-grid label { min-width:0; }
     .service-filter-grid .control { width:100%; }
-    .service-filter-actions { display:flex; gap:8px; }
+    .service-filter-grid .search-field { width:100%; min-width:0; height:40px; }
+    .service-filter-actions { display:flex; gap:8px; align-items:center; }
+    .service-filter-actions .btn { min-width:74px; height:40px; justify-content:center; white-space:nowrap; }
+    .service-table { min-width:1120px; table-layout:fixed; }
+    .service-table th:nth-child(1) { width:155px; }
+    .service-table th:nth-child(2) { width:50px; }
+    .service-table th:nth-child(3) { width:118px; }
+    .service-table th:nth-child(4) { width:135px; }
+    .service-table th:nth-child(5) { width:110px; }
+    .service-table th:nth-child(6) { width:188px; }
+    .service-table th:nth-child(7) { width:135px; }
+    .service-table th:nth-child(8) { width:122px; }
+    .service-table th:nth-child(9) { width:92px; }
     .service-table td { vertical-align:middle; }
+    .service-table th:last-child,.service-table td:last-child { position:sticky; right:0; text-align:right; background:#faf9f6; box-shadow:-8px 0 12px -14px rgba(20,20,20,.65); }
+    .service-table td:last-child { z-index:2; background:var(--surface); }
+    .service-table th:last-child { z-index:3; }
+    .service-table tbody tr:hover td:last-child { background:#fbfcfa; }
     .service-ticket strong,.service-customer strong { display:block; font-size:12px; color:#222; }
     .service-ticket span,.service-customer span { display:block; margin-top:5px; font-size:10px; color:var(--muted); }
-    .service-status { display:inline-flex; align-items:center; gap:6px; max-width:190px; padding:5px 8px; border-radius:5px; font-size:10px; line-height:1.4; }
+    .service-status { display:inline-flex; align-items:center; gap:7px; max-width:195px; padding:6px 9px; border:1px solid transparent; border-radius:7px; font-size:10px; font-weight:650; line-height:1.45; }
     .service-status::before { content:""; width:5px; height:5px; border-radius:50%; background:currentColor; flex:0 0 auto; }
-    .service-status.pending,.service-status.payment { color:#8a682e; background:#f7f1e3; }
-    .service-status.active { color:#46677f; background:#edf2f6; }
-    .service-status.complete { color:#4f7057; background:#edf4ef; }
-    .service-status.rejected { color:#9d4b45; background:#f8ecea; }
-    .service-status.cancelled { color:#6d6b64; background:#efeeeb; }
+    .service-status.status-submitted { color:#87652a; background:#f9f2df; border-color:#eadbb8; }
+    .service-status.status-assigned { color:#35658b; background:#edf4f9; border-color:#d3e3ee; }
+    .service-status.status-kit_sent { color:#655393; background:#f2eff9; border-color:#ded7ef; }
+    .service-status.status-customer_sent { color:#27717b; background:#eaf6f6; border-color:#cfe8e8; }
+    .service-status.status-received { color:#9a5b2e; background:#fbf0e7; border-color:#efd8c7; }
+    .service-status.status-payment { color:#765085; background:#f3ecf7; border-color:#dfd1e7; }
+    .service-status.status-return_sent { color:#455c8b; background:#edf0f8; border-color:#d5dced; }
+    .service-status.status-completed { color:#4f7057; background:#edf4ef; border-color:#d4e4d8; }
+    .service-status.status-rejected { color:#9d4b45; background:#f8ecea; border-color:#eed2cf; }
+    .service-status.status-cancelled { color:#6d6b64; background:#efeeeb; border-color:#deddd8; }
     .service-error { color:#9d302b; background:#fff0ee; border:1px solid #e6c4c0; border-radius:5px; padding:10px 12px; margin:12px 0; font-size:12px; }
     .service-image-grid { display:flex; flex-wrap:wrap; gap:10px; margin-top:10px; }
     .service-image-grid button { border:1px solid var(--line); border-radius:6px; padding:4px; background:#fff; width:108px; cursor:pointer; }
@@ -1873,6 +1894,9 @@
     #serviceEditDialog { width:min(760px,94vw); max-height:90vh; }
     #serviceEditDialog .dialog-body { max-height:66vh; overflow:auto; }
     .service-row-actions { display:flex; gap:6px; justify-content:flex-end; }
+    .service-row-action { min-width:86px; height:34px; padding:0 11px; display:inline-flex; align-items:center; justify-content:center; gap:7px; border:1px solid var(--line-strong); border-radius:8px; color:var(--ink); background:#fff; cursor:pointer; font-size:10px; font-weight:650; white-space:nowrap; }
+    .service-row-action:hover { color:var(--forest); border-color:#c7d0ca; background:var(--sage-2); }
+    .service-row-action svg { width:13px; height:13px; }
     .service-detail-shell { padding:30px 34px 44px; }
     .service-detail-head { display:flex; gap:16px; align-items:center; margin-bottom:24px; }
     .service-detail-head .back-button { position:static; flex:0 0 auto; }
@@ -1903,8 +1927,12 @@
     .service-logistics span { display:block; color:var(--muted); font-size:10px; margin-top:5px; }
     .service-action-panel { background:#faf8f3; }
     .service-action-panel p { color:var(--muted); font-size:11px; line-height:1.7; margin-bottom:13px; }
-    .service-action-panel .control { width:100%; margin-bottom:9px; }
-    .service-action-panel .btn { width:100%; justify-content:center; }
+    .service-action-controls,#serviceApprovalFields { display:grid; gap:12px; }
+    .service-action-controls label { min-width:0; }
+    .service-action-panel .control { width:100%; margin-bottom:0; }
+    .service-action-panel .btn { width:100%; min-height:42px; justify-content:center; }
+    .service-confirm-row { min-height:48px; padding:11px 13px; display:flex; align-items:center; gap:10px; color:var(--muted); background:#fff; border:1px solid var(--line); border-radius:8px; font-size:10px; line-height:1.5; cursor:pointer; }
+    .service-confirm-row input { width:16px; height:16px; margin:0; accent-color:var(--forest); }
     .service-history { list-style:none; padding:0; margin:0; }
     .service-history li { position:relative; padding:0 0 18px 20px; font-size:10px; line-height:1.6; }
     .service-history li::before { content:""; position:absolute; left:2px; top:4px; width:7px; height:7px; border-radius:50%; background:#9a8666; }
@@ -1917,6 +1945,7 @@
     .service-role-switch button { border:0; background:#fff; padding:8px 12px; font-size:10px; color:var(--muted); }
     .service-role-switch button.is-active { background:#171717; color:#fff; }
     @media(max-width:1050px){.service-filter-grid{grid-template-columns:1fr 1fr}.service-filter-actions{grid-column:1/-1;justify-content:flex-end}.service-detail-grid{grid-template-columns:1fr}.service-workflow{overflow:auto;grid-template-columns:repeat(8,105px)}}
+    @media(max-width:720px){.service-filter-grid{grid-template-columns:1fr}.service-filter-actions{justify-content:stretch}.service-filter-actions .btn{flex:1}}
   </style>
 </head>
 <body>
@@ -2114,12 +2143,10 @@
           </div>
           <section class="panel filter-panel">
             <div class="service-filter-grid">
-              <label><span class="field-label">搜索</span><span class="search-field"><svg><use href="#i-search"/></svg><input id="serviceKeyword" type="search" placeholder="工单号 / 客户 / 手机号 / 作品编号"></span></label>
+              <label><span class="field-label">查询字段</span><select class="control" id="serviceQueryField"><option value="ALL">全部字段</option><option value="TICKET">工单号</option><option value="CUSTOMER">客户</option><option value="PHONE">手机号</option><option value="PRODUCT">作品型号 / 编号</option><option value="STORE">负责门店</option></select></label>
+              <label><span class="field-label">查询内容</span><span class="search-field"><svg><use href="#i-search"/></svg><input id="serviceKeyword" type="search" placeholder="请输入查询内容"></span></label>
               <label><span class="field-label">品牌</span><select class="control" id="serviceBrand"><option value="ALL">全部品牌</option><option value="GP">GP 芝柏表</option><option value="UN">UN 雅典表</option></select></label>
               <label><span class="field-label">工单状态</span><select class="control" id="serviceStatus"><option value="ALL">全部状态</option></select></label>
-              <label><span class="field-label">负责门店</span><select class="control" id="serviceStore"><option value="ALL">全部门店</option><option>上海恒隆广场精品店</option><option>北京国贸商城精品店</option><option>深圳万象城精品店</option><option>未分配</option></select></label>
-              <label><span class="field-label">申请开始日期</span><input class="control" id="serviceDateFrom" type="date"></label>
-              <label><span class="field-label">申请结束日期</span><input class="control" id="serviceDateTo" type="date"></label>
               <div class="service-filter-actions"><button class="btn" id="resetServiceFilters">重置</button><button class="btn btn-primary" id="searchServices"><svg><use href="#i-search"/></svg>查询</button></div>
             </div>
           </section>
@@ -2149,7 +2176,7 @@
               <section class="service-card"><h2>物流与报价</h2><div class="service-logistics" id="serviceLogistics"></div></section>
             </div>
             <aside>
-              <section class="service-card service-action-panel"><h2>当前处理</h2><p id="serviceActionDescription"></p><div id="serviceActionError" class="service-error" role="alert" hidden></div><div id="serviceActionControls"></div></section>
+              <section class="service-card service-action-panel"><h2>当前处理</h2><p id="serviceActionDescription"></p><div id="serviceActionError" class="service-error" role="alert" hidden></div><div id="serviceActionControls" class="service-action-controls"></div></section>
               <section class="service-card"><h2>工单记录</h2><ol class="service-history" id="serviceHistory"></ol></section>
             </aside>
           </div>
@@ -2352,7 +2379,9 @@
           <label class="wide"><span class="field-label">作品寄回地址</span><input class="control" id="editServiceReturnAddress"></label>
           <label class="wide"><span class="field-label">客户说明</span><textarea class="control" id="editServiceDescription" rows="3"></textarea></label>
           <label class="wide"><span class="field-label">门店服务说明</span><textarea class="control" id="editServiceNote" rows="3"></textarea></label>
-          <label class="wide"><span class="field-label">维修图片</span><input class="control" id="editServiceImages" type="file" accept="image/jpeg,image/png,image/webp" multiple><small class="scope-note" id="editServiceImageHint">最多4张，每张不超过600KB，合计不超过1.5MB，支持JPG、PNG和WebP。</small></label>
+          <label class="wide"><span class="field-label">作品收件图片</span><input class="control" id="editServiceReceivedImages" type="file" accept="image/jpeg,image/png,image/webp" multiple><small class="scope-note">重新选择会替换收件节点图片；未选择则保留。</small></label>
+          <div class="wide service-image-grid" id="editServiceReceivedImagePreview"></div>
+          <label class="wide"><span class="field-label">售后完成图片</span><input class="control" id="editServiceImages" type="file" accept="image/jpeg,image/png,image/webp" multiple><small class="scope-note">重新选择会替换售后完成节点图片；未选择则保留。</small></label>
           <div class="wide service-image-grid" id="editServiceImagePreview"></div>
           <div class="wide service-error" id="serviceEditError" role="alert" hidden></div>
         </div>
@@ -2362,8 +2391,8 @@
   </dialog>
 
   <dialog id="serviceImageDialog" class="service-image-viewer">
-    <div class="dialog-header"><h2 id="serviceImageTitle">维修图片</h2><span class="spacer"></span><button class="dialog-close" type="button" id="closeServiceImage" aria-label="关闭图片"><svg><use href="#i-x"/></svg></button></div>
-    <div class="dialog-body"><img id="serviceImageFull" alt="维修图片"></div>
+    <div class="dialog-header"><h2 id="serviceImageTitle">服务图片</h2><span class="spacer"></span><button class="dialog-close" type="button" id="closeServiceImage" aria-label="关闭图片"><svg><use href="#i-x"/></svg></button></div>
+    <div class="dialog-body"><img id="serviceImageFull" alt="服务图片"></div>
   </dialog>
 
   <div class="toast" id="toast"><span class="toast-icon"><svg><use href="#i-check"/></svg></span><span id="toastText">更改已保存</span></div>

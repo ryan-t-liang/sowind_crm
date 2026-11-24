@@ -5,14 +5,22 @@ const code=readFileSync(new URL('../shared/service-model.js',import.meta.url),'u
 const data=new Map();
 let broken=false;
 const storage={getItem:k=>data.get(k)??null,setItem:(k,v)=>{if(broken)throw new Error('quota');data.set(k,v);}};
-function client(){const window=new EventTarget();Object.assign(window,{localStorage:storage});vm.runInNewContext(code,{window,Event,console});return window.SowindService;}
+function client(targetStorage=storage){const window=new EventTarget();Object.assign(window,{localStorage:targetStorage});vm.runInNewContext(code,{window,Event,console});return window.SowindService;}
 const front=client(),admin=client();
 assert.equal(front.getTickets().length,2);
+assert.ok(front.getTickets().every(item=>new RegExp('^'+item.brand+'AS\\d{10}$').test(item.id)));
 const template=front.getTickets({brand:'GP'})[0];
 const ticket=front.createTicket({...template,id:undefined,customer:'林安 女士',lastName:'林',firstName:'安',salutation:'女士',phone:'13812345678',reason:'走时慢',kitAddress:'测试套件地址',returnAddress:'测试寄回地址'});
 assert.equal(admin.getTicket(ticket.id).customer,'林安 女士');
 assert.notEqual(ticket.id,template.id);
-assert.ok(ticket.id.startsWith('GPAS'));
+assert.match(ticket.id,/^GPAS\d{10}$/);
+const generated=new Set([ticket.id]);
+for(let index=0;index<100;index+=1){
+  const brand=index%2?'UN':'GP',source=front.getTickets({brand})[0];
+  const created=front.createTicket({...source,id:undefined});
+  assert.match(created.id,new RegExp('^'+brand+'AS\\d{10}$'));
+  assert.ok(!generated.has(created.id));generated.add(created.id);
+}
 front.updateTicket(ticket.id,{description:'修改原预约说明'},'customer');
 assert.equal(admin.getTicket(ticket.id).description,'修改原预约说明');
 assert.throws(()=>front.transition(ticket.id,'approve',{},'customer'));
@@ -24,14 +32,19 @@ front.transition(ticket.id,'send-watch',{inboundTracking:'SF1234567891235'},'cus
 assert.equal(admin.getTicket(ticket.id).status,'customer_sent');
 assert.throws(()=>front.updateTicket(ticket.id,{returnAddress:'不应写入'},'customer'));
 assert.throws(()=>front.transition(ticket.id,'cancel',{},'customer'));
-admin.transition(ticket.id,'receive');
-const image={id:'proof',name:'repair.png',dataUrl:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aV1cAAAAASUVORK5CYII='};
-for(const quoteAmount of ['abc',-1,Infinity,1.001])assert.throws(()=>admin.transition(ticket.id,'finish-service',{quoteAmount,serviceNote:'已完成检测',serviceImages:[image]}));
+const receivedImage={id:'received-proof',name:'received.png',dataUrl:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aV1cAAAAASUVORK5CYII='};
+const serviceImage={id:'service-proof',name:'finished.png',dataUrl:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8zwAAAgEBALNn8ZsAAAAASUVORK5CYII='};
+assert.throws(()=>admin.transition(ticket.id,'receive'),/收件图片/);
+assert.equal(front.getTicket(ticket.id).status,'customer_sent');
+admin.transition(ticket.id,'receive',{receivedImages:[receivedImage]});
+assert.equal(front.getTicket(ticket.id).receivedImages[0].dataUrl,receivedImage.dataUrl);
+for(const quoteAmount of ['abc',-1,Infinity,1.001])assert.throws(()=>admin.transition(ticket.id,'finish-service',{quoteAmount,serviceNote:'已完成检测',serviceImages:[serviceImage]}));
 assert.throws(()=>admin.transition(ticket.id,'finish-service',{quoteAmount:3200,serviceNote:'已完成检测',serviceImages:[]}));
 assert.equal(front.getTicket(ticket.id).status,'received');
-admin.transition(ticket.id,'finish-service',{quoteAmount:3200,serviceNote:'已完成抛光',serviceImages:[image]});
+admin.transition(ticket.id,'finish-service',{quoteAmount:3200,serviceNote:'已完成抛光',serviceImages:[serviceImage]});
 assert.equal(front.getTicket(ticket.id).quoteAmount,3200);
-assert.equal(front.getTicket(ticket.id).serviceImages[0].dataUrl,image.dataUrl);
+assert.equal(front.getTicket(ticket.id).serviceImages[0].dataUrl,serviceImage.dataUrl);
+assert.notEqual(front.getTicket(ticket.id).receivedImages[0].dataUrl,front.getTicket(ticket.id).serviceImages[0].dataUrl);
 assert.ok(front.getTicket(ticket.id).history.at(-1).note.includes('已完成抛光'));
 admin.transition(ticket.id,'return-watch',{outboundTracking:'SF1234567891236'});
 front.transition(ticket.id,'complete',{},'customer');
@@ -52,5 +65,10 @@ broken=true;
 assert.throws(()=>admin.updateTicket(ticket.id,{phone:'13999999999'}),/无法保存/);
 broken=false;
 assert.equal(admin.getTicket(ticket.id).phone,before);
-assert.equal(front.getTickets({brand:'UN'}).length,1);
-console.log('PASS: cross-client create/edit, full 8-stage workflow, cancellation, rejection, validation, image persistence and storage failures');
+assert.ok(front.getTickets({brand:'UN'}).every(item=>/^UNAS\d{10}$/.test(item.id)));
+const legacyMap=new Map([["sowind.aftersales.v3",JSON.stringify({version:3,tickets:[{...template,id:'GPAS17954938581097d2396',receivedImages:undefined}]})]]);
+const legacyStorage={getItem:key=>legacyMap.get(key)??null,setItem:(key,value)=>legacyMap.set(key,value)};
+const migrated=client(legacyStorage),migratedTicket=migrated.getTickets({brand:'GP'})[0];
+assert.match(migratedTicket.id,/^GPAS\d{10}$/);assert.deepEqual(Array.from(migratedTicket.receivedImages),[]);
+assert.equal(migrated.getTicket(migratedTicket.id).id,migratedTicket.id);
+console.log('PASS: ticket IDs, v3 migration, separate received/completion images, full workflow, validation and storage failures');

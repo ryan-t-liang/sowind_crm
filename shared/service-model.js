@@ -1,6 +1,7 @@
 (function (root) {
   'use strict';
-  const KEY = 'sowind.aftersales.v3';
+  const KEY = 'sowind.aftersales.v4';
+  const PREVIOUS = 'sowind.aftersales.v3';
   const LEGACY = 'sowind.crm.v1.13.3.aftersales';
   const EVENT = 'sowind:services-changed';
   const statusCatalog = {
@@ -13,13 +14,29 @@
     return_sent: {label:'作品已寄回，待签收',tone:'active',order:6},
     completed: {label:'服务完成',tone:'complete',order:7},
     rejected: {label:'已拒绝',tone:'rejected',order:-1},
-    cancelled: {label:'已取消',tone:'rejected',order:-1}
+    cancelled: {label:'已取消',tone:'cancelled',order:-1}
   };
   const reasons = ['更换电池','全面保养服务','部件遗失/损坏','功能失效','腕表抛光/翻新','走时快','走时慢','走停','腕表防水','万年历调整','摔落/震撞','消磁','其他问题'];
   const clone = value => JSON.parse(JSON.stringify(value));
   const now = () => new Date().toLocaleString('sv-SE',{timeZone:'Asia/Shanghai'}).slice(0,19);
   const uid = () => root.crypto?.randomUUID?.() || Date.now().toString(36) + Math.random().toString(36).slice(2);
   const clean = value => String(value ?? '').trim();
+  const randomDigits = () => {
+    if (root.crypto && typeof root.crypto.getRandomValues === 'function') {
+      const values = new Uint32Array(10);
+      root.crypto.getRandomValues(values);
+      return Array.from(values, value => value % 10).join('');
+    }
+    return Array.from({length:10}, () => Math.floor(Math.random() * 10)).join('');
+  };
+  function nextTicketId(brand, existing=[]) {
+    const used = existing instanceof Set ? existing : new Set(existing.map(item => item.id));
+    for (let attempt=0; attempt<100; attempt+=1) {
+      const id = brand+'AS'+randomDigits();
+      if (!used.has(id)) return id;
+    }
+    fail('无法生成唯一工单号，请重试');
+  }
   const canEdit = ticket => ['submitted','assigned','kit_sent'].includes(ticket.status);
   const canCancel = canEdit;
   function fail(message) { throw new Error(message); }
@@ -30,13 +47,13 @@
     return n;
   }
   function pictures(value) {
-    if (!Array.isArray(value) || value.length > 6) fail('最多选择6张维修图片');
+    if (!Array.isArray(value) || value.length > 6) fail('每个节点最多选择6张图片');
     let size = 0;
     return value.map(item => {
       if (!item || !/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+=*$/.test(item.dataUrl || '')) fail('请选择有效的 PNG、JPEG 或 WebP 图片');
       size += item.dataUrl.length;
       if (size > 2000000) fail('图片总大小过大，请压缩后重试（合计最多1.5MB）');
-      return {id:clean(item.id)||uid(),name:clean(item.name)||'维修图片',dataUrl:item.dataUrl};
+      return {id:clean(item.id)||uid(),name:clean(item.name)||'服务图片',dataUrl:item.dataUrl};
     });
   }
   function validate(item) {
@@ -49,6 +66,7 @@
     if (!reasons.includes(item.reason)) fail('请选择售后原因');
     item.quoteAmount = amount(item.quoteAmount);
     item.quote = item.quoteAmount == null ? '—' : '¥'+item.quoteAmount.toLocaleString('zh-CN');
+    item.receivedImages = pictures(item.receivedImages || []);
     item.serviceImages = pictures(item.serviceImages || []);
   }
   function message(item, status) {
@@ -74,28 +92,32 @@
   }
   function newTicket(input) {
     const time = now(), brand = input.brand;
-    return {id:brand+'AS'+Date.now()+Math.floor(Math.random()*1000),brand,customerId:input.customerId||'demo-'+brand,customer:'',salutation:'先生',lastName:'',firstName:'',phone:'',reference:'',serial:'',reason:'',description:'',kitAddress:'',returnAddress:'',store:'未分配',storePhone:'',advisor:'未分配',kitTracking:'',inboundTracking:'',outboundTracking:'',quoteAmount:null,quote:'—',serviceNote:'',serviceImages:[],rejectionReason:'',cancelReason:'',...input,status:'submitted',created:time,updated:time,history:[]};
+    return {id:brand+'AS'+randomDigits(),brand,customerId:input.customerId||'demo-'+brand,customer:'',salutation:'先生',lastName:'',firstName:'',phone:'',reference:'',serial:'',reason:'',description:'',kitAddress:'',returnAddress:'',store:'未分配',storePhone:'',advisor:'未分配',kitTracking:'',inboundTracking:'',outboundTracking:'',quoteAmount:null,quote:'—',serviceNote:'',receivedImages:[],serviceImages:[],rejectionReason:'',cancelReason:'',...input,status:'submitted',created:time,updated:time,history:[]};
   }
   function seed() {
     return ['GP','UN'].map(brand=>{
       const item = newTicket({brand,customer:'梁桐 先生',lastName:'梁',firstName:'桐',phone:'18717822727',reference:brand==='GP'?'81006-11-2010-1cm':'2405-500-2A/3A',serial:brand+'17910001',reason:'腕表抛光/翻新',description:'腕表买回来几年了，链条有划痕需要抛光下',kitAddress:'上海市长宁区愚园路1108号创邑园区2号2楼',returnAddress:'上海市长宁区愚园路1108号创邑园区2号2楼'});
-      item.id=brand+'AS12345678910'; item.created='2026-09-01 09:01:00'; item.updated=item.created;
+      item.id=brand+'AS1234567890'; item.created='2026-09-01 09:01:00'; item.updated=item.created;
       item.history=[{id:uid(),status:'submitted',title:statusCatalog.submitted.label,time:item.created,note:message(item,'submitted'),actor:'customer'}];
       return item;
     });
   }
   function migrate(items) {
+    const used = new Set();
     return items.filter(item=>item && statusCatalog[item.status] && ['GP','UN'].includes(item.brand)).map(old=>{
       const item={...newTicket(old),status:old.status,created:old.created,updated:old.updated,history:old.history||[],customerId:old.customerId||(old.customer==='梁桐 先生'?'demo-'+old.brand:'legacy-'+old.id)};
+      const oldId=clean(old.id), pattern=new RegExp('^'+item.brand+'AS\\d{10}$');
+      item.id=pattern.test(oldId)&&!used.has(oldId)?oldId:nextTicketId(item.brand,used);used.add(item.id);
       const numeric=Number(String(old.quote||'').replace(/[^0-9.]/g,''));
       item.quoteAmount=old.quoteAmount ?? (old.quote && old.quote!=='—' && Number.isFinite(numeric)?numeric:null);
+      item.receivedImages=(old.receivedImages||[]).filter(v=>v && typeof v==='object' && v.dataUrl);
       item.serviceImages=(old.serviceImages||[]).filter(v=>v && typeof v==='object' && v.dataUrl);
       item.history=item.history.map(h=>({...h,id:h.id||uid(),actor:h.actor||'admin',status:h.status||old.status}));
       return item;
     });
   }
   function write(items) {
-    try { root.localStorage.setItem(KEY,JSON.stringify({version:3,tickets:items})); }
+    try { root.localStorage.setItem(KEY,JSON.stringify({version:4,tickets:items})); }
     catch (_) { fail('无法保存工单：浏览器存储不可用或空间不足，请减少图片后重试'); }
     root.dispatchEvent(new Event(EVENT));
   }
@@ -104,19 +126,21 @@
     try {saved=root.localStorage.getItem(KEY);} catch (_) {fail('无法读取浏览器中的工单数据');}
     if(saved!=null){
       let parsed; try {parsed=JSON.parse(saved);} catch (_) {fail('工单数据损坏，请先备份浏览器数据后联系管理员');}
-      if(parsed.version!==3 || !Array.isArray(parsed.tickets)) fail('工单数据版本不兼容');
+      if(parsed.version!==4 || !Array.isArray(parsed.tickets)) fail('工单数据版本不兼容');
       return parsed.tickets;
     }
+    let previous=[];
+    try {const old=JSON.parse(root.localStorage.getItem(PREVIOUS));if(old&&old.version===3&&Array.isArray(old.tickets))previous=migrate(old.tickets);} catch (_) { /* Keep previous data untouched; initialize this version separately. */ }
     let legacy=[];
     try {const old=JSON.parse(root.localStorage.getItem(LEGACY));if(Array.isArray(old))legacy=migrate(old);} catch (_) { /* Keep old data untouched; initialize this version separately. */ }
-    const items=legacy.length?legacy:seed();
+    const items=previous.length?previous:legacy.length?legacy:seed();
     for(const sample of seed())if(!items.some(t=>t.customerId===sample.customerId))items.push(sample);
     write(items);return items;
   }
   function getTicket(id) {return clone(read().find(item=>item.id===id)||null);}
   function getTickets(filter={}) {return clone(read().filter(item=>(!filter.brand||item.brand===filter.brand)&&(!filter.customerId||item.customerId===filter.customerId)).sort((a,b)=>b.created.localeCompare(a.created)));}
   function createTicket(input) {
-    const items=read(),item=newTicket(input);item.id=item.brand+'AS'+Date.now()+uid().replace(/-/g,'').slice(0,6);validateIdentity(item);validate(item);log(item,'customer');items.unshift(item);write(items);return clone(item);
+    const items=read(),item=newTicket(input);item.id=nextTicketId(item.brand,items);validateIdentity(item);validate(item);log(item,'customer');items.unshift(item);write(items);return clone(item);
   }
   function validateIdentity(item) {
     if(!['先生','女士'].includes(item.salutation))fail('请选择称谓');
@@ -124,13 +148,13 @@
     item.customer=clean(item.lastName)+clean(item.firstName)+' '+item.salutation;
   }
   const customerFields=['customer','salutation','lastName','firstName','phone','reference','serial','reason','description','kitAddress','returnAddress'];
-  const adminFields=[...customerFields,'store','storePhone','advisor','kitTracking','inboundTracking','outboundTracking','quoteAmount','serviceNote','serviceImages'];
+  const adminFields=[...customerFields,'store','storePhone','advisor','kitTracking','inboundTracking','outboundTracking','quoteAmount','serviceNote','receivedImages','serviceImages'];
   function updateTicket(id,patch,actor='admin') {
     const items=read(),item=items.find(t=>t.id===id);if(!item)fail('工单不存在');
     const before=clone(item);
     if(actor==='customer'&&!canEdit(item))fail('当前阶段已无法修改预约，请联系负责门店');
     const fields=actor==='customer'?customerFields:adminFields;
-    for(const key of Object.keys(patch)){if(!fields.includes(key))fail('不允许修改字段：'+key);item[key]=key==='quoteAmount'||key==='serviceImages'?patch[key]:clean(patch[key]);}
+    for(const key of Object.keys(patch)){if(!fields.includes(key))fail('不允许修改字段：'+key);item[key]=key==='quoteAmount'||key==='receivedImages'||key==='serviceImages'?patch[key]:clean(patch[key]);}
     if(actor==='customer')validateIdentity(item);
     validate(item);
     const labels={kitTracking:'专属套件快递单号',inboundTracking:'客户寄出作品快递单号',outboundTracking:'作品寄回快递单号',serviceNote:'服务说明',quoteAmount:'服务报价',store:'负责门店',storePhone:'门店电话',advisor:'专属顾问'};
@@ -150,10 +174,13 @@
       if(action==='reject'){if(!clean(data.rejectionReason))fail('请填写拒绝原因');item.rejectionReason=clean(data.rejectionReason);}
       const logistics={'send-kit':'kitTracking','send-watch':'inboundTracking','return-watch':'outboundTracking'};
       if(logistics[action]){const field=logistics[action],tracking=clean(data[field]);if(!/^[A-Za-z0-9-]{6,40}$/.test(tracking))fail('请输入6–40位有效快递单号（字母、数字或横线）');item[field]=tracking;}
+      if(action==='receive'){
+        item.receivedImages=pictures(data.receivedImages||[]);if(!item.receivedImages.length)fail('请上传至少一张作品收件图片');
+      }
       if(action==='finish-service'){
         item.quoteAmount=amount(data.quoteAmount);if(item.quoteAmount==null)fail('请填写服务报价');
         item.serviceNote=clean(data.serviceNote);if(!item.serviceNote)fail('请填写服务说明');
-        item.serviceImages=pictures(data.serviceImages||[]);if(!item.serviceImages.length)fail('请上传至少一张维修图片');
+        item.serviceImages=pictures(data.serviceImages||[]);if(!item.serviceImages.length)fail('请上传至少一张售后完成图片');
       }
       item.status=next[1];
     }

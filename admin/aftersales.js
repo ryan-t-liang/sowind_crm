@@ -9,13 +9,13 @@
   var statuses = service.statusCatalog;
   var flow = ["submitted", "assigned", "kit_sent", "customer_sent", "received", "payment", "return_sent", "completed"];
   var role = "ADMIN", selectedId = null, editingVersion = null, editingId = null, renderedVersion = null;
-  var imageCache = [], pendingEditImages = null, pendingRepairImages = null, imageReadVersion = 0;
+  var imageCache = [], pendingEditReceivedImages = null, pendingEditServiceImages = null, pendingReceivedImages = null, pendingRepairImages = null, imageReadVersion = 0, editImageReadVersion = 0, editImageReadPending = 0;
   var stores = ["上海南京西路形象店", "上海恒隆广场精品店", "北京国贸商城精品店", "深圳万象城精品店"];
   function esc(value) { return String(value == null ? "" : value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
   function brandLabel(brand) { return brand === "GP" ? "GP 芝柏表" : "UN 雅典表"; }
   function customer(item) { return item.customer || [item.lastName, item.firstName].join("") + " " + (item.salutation || ""); }
   function statusOf(item) { return statuses[item.status] || { label: item.status, tone: "pending" }; }
-  function badge(item) { var status = statusOf(item); return '<span class="service-status ' + esc(status.tone || "active") + '">' + esc(status.label) + '</span>'; }
+  function badge(item) { var status = statusOf(item); return '<span class="service-status ' + esc(status.tone || "active") + ' status-' + esc(item.status) + '">' + esc(status.label) + '</span>'; }
   function errorAt(id, error) { $(id).textContent = error.message || String(error); $(id).hidden = false; }
   function clearError(id) { $(id).hidden = true; $(id).textContent = ""; }
   function toast(message) { if (window.SowindCRM && window.SowindCRM.showToast) window.SowindCRM.showToast(message); }
@@ -25,11 +25,9 @@
   function all() { return service.getTickets(); }
   function options(values, selectedValue) { return values.map(function (value) { return '<option' + (value === selectedValue ? ' selected' : '') + '>' + esc(value) + '</option>'; }).join(""); }
   function updateStores() {
-    var working = $("serviceWorkingStore").value, filter = $("serviceStore").value;
+    var working = $("serviceWorkingStore").value;
     stores = Array.from(new Set(stores.concat(all().map(function (item) { return item.store; }).filter(function (value) { return value && value !== "未分配"; }))));
     $("serviceWorkingStore").innerHTML = options(stores, working || stores[0]);
-    $("serviceStore").innerHTML = '<option value="ALL">全部门店</option>' + options(stores.concat("未分配"), filter);
-    if (filter === "ALL") $("serviceStore").value = "ALL";
   }
   function activate(viewId) {
     document.querySelectorAll(".view").forEach(function (view) { view.classList.toggle("is-active", view.id === viewId); });
@@ -45,14 +43,16 @@
     activate("serviceDetailView"); $("breadcrumbText").textContent = "售后服务 / 工单详情"; renderDetail();
   }
   function filtered() {
-    var keyword = $("serviceKeyword").value.trim().toLowerCase(), from = $("serviceDateFrom").value, to = $("serviceDateTo").value;
+    var keyword = $("serviceKeyword").value.trim().toLowerCase(), queryField = $("serviceQueryField").value;
     return all().filter(function (item) {
-      var date = item.created.slice(0, 10);
+      var fields = {
+        ALL: [item.id, customer(item), item.phone, item.reference, item.serial, item.store],
+        TICKET: [item.id], CUSTOMER: [customer(item)], PHONE: [item.phone],
+        PRODUCT: [item.reference, item.serial], STORE: [item.store]
+      };
       return inScope(item) && ($("serviceBrand").value === "ALL" || item.brand === $("serviceBrand").value)
         && ($("serviceStatus").value === "ALL" || item.status === $("serviceStatus").value)
-        && ($("serviceStore").value === "ALL" || item.store === $("serviceStore").value)
-        && (!from || date >= from) && (!to || date <= to)
-        && (!keyword || [item.id, customer(item), item.phone, item.reference, item.serial].join(" ").toLowerCase().includes(keyword));
+        && (!keyword || (fields[queryField] || fields.ALL).join(" ").toLowerCase().includes(keyword));
     });
   }
   function renderMetrics() {
@@ -71,7 +71,7 @@
         + '<td><div class="service-customer"><strong>' + esc(customer(item)) + '</strong><span>' + esc(item.phone) + '</span></div></td>'
         + '<td><div class="service-ticket"><strong>' + esc(item.reference) + '</strong><span>' + esc(item.serial) + '</span></div></td><td>' + esc(item.reason) + '</td>'
         + '<td>' + badge(item) + '</td><td>' + esc(item.store || "未分配") + '</td><td>' + esc(item.updated) + '</td>'
-        + '<td><button class="table-action" data-service-open>详情</button></td></tr>';
+        + '<td><div class="service-row-actions"><button class="service-row-action" data-service-open><span>查看详情</span><svg><use href="#i-chevron"></use></svg></button></div></td></tr>';
     }).join("");
     $("serviceResultCount").textContent = items.length + " 条结果";
     $("serviceTableSummary").textContent = items.length ? "显示 1–" + items.length + "，共 " + items.length + " 条工单" : "无匹配结果";
@@ -101,23 +101,25 @@
     }
     if (item.status === "assigned") return { description: "专属服务套件寄出后录入物流单号，客户可在工单记录中查看。", html: input("serviceKitTracking", "专属套件物流单号", "", 'placeholder="请输入快递单号"') + actionButton("send-kit", "确认寄出套件") };
     if (item.status === "kit_sent") return { description: "客户可在预约信息页填写寄出作品的快递单号；收到客户通知后，也可在此代录。", html: input("serviceInboundTracking", "客户寄出作品物流单号", "", 'placeholder="请输入客户提供的快递单号"') + actionButton("send-watch", "记录作品已发回") };
-    if (item.status === "customer_sent") return { description: "核对客户寄出的作品和物流信息后确认收件。", html: actionButton("receive", "确认门店已收件") };
-    if (item.status === "received") return { description: "录入服务报价、客户可见的服务说明和维修图片，完成后将更新客户工单记录。", html:
+    if (item.status === "customer_sent") return { description: "核对客户寄出的作品和物流信息，上传收件凭证后确认收件。该图片会显示在“作品已收到，待售后”节点。", html:
+      '<label><span class="field-label">作品收件图片</span><input class="control" id="serviceReceivedImages" type="file" accept="image/jpeg,image/png,image/webp" multiple><small class="scope-note">必传，最多4张，每张不超过600KB，合计不超过1.5MB。</small></label><div id="serviceReceivedPreview">' + imageGrid(item.receivedImages) + '</div>'
+      + actionButton("receive", "上传图片并确认收件") };
+    if (item.status === "received") return { description: "录入服务报价、客户可见的服务说明和售后完成图片，完成后将更新客户工单记录。", html:
       input("serviceQuote", "服务报价（元）", item.quoteAmount == null ? "" : item.quoteAmount, 'inputmode="decimal" placeholder="请输入报价金额"')
       + '<label><span class="field-label">服务说明（客户可见）</span><textarea class="control" id="serviceNote" rows="4" placeholder="填写已完成的服务内容">' + esc(item.serviceNote === "—" ? "" : item.serviceNote) + '</textarea></label>'
-      + '<label><span class="field-label">维修图片</span><input class="control" id="serviceRepairImages" type="file" accept="image/jpeg,image/png,image/webp" multiple><small class="scope-note">最多4张，每张不超过600KB，合计不超过1.5MB。图片仅保存在当前浏览器。</small></label><div id="serviceRepairPreview">' + imageGrid(item.serviceImages) + '</div>'
+      + '<label><span class="field-label">售后完成图片</span><input class="control" id="serviceRepairImages" type="file" accept="image/jpeg,image/png,image/webp" multiple><small class="scope-note">必传，最多4张，每张不超过600KB，合计不超过1.5MB。该图片与收件图片分开保存。</small></label><div id="serviceRepairPreview">' + imageGrid(item.serviceImages) + '</div>'
       + actionButton("finish-service", "提交报价与服务结果") };
     if (item.status === "payment") return { description: "确认收到线下转账后，录入寄回作品的快递单号。客户随后可确认签收。", html:
-      '<label class="scope-note"><input type="checkbox" id="servicePaymentConfirmed"> 已核实收到客户线下付款</label>'
+      '<label class="service-confirm-row"><input type="checkbox" id="servicePaymentConfirmed"><span>已核实收到客户线下付款</span></label>'
       + input("serviceOutboundTracking", "作品寄回物流单号", "", 'placeholder="请输入快递单号"') + actionButton("return-watch", "确认收款并寄回") };
-    if (item.status === "return_sent") return { description: "客户可在预约详情确认收到作品；收到客户确认后，也可在此代为登记。", html: '<label class="scope-note"><input type="checkbox" id="serviceReceiptConfirmed"> 已与客户核实作品签收</label>' + actionButton("complete", "确认客户已签收") };
+    if (item.status === "return_sent") return { description: "客户可在预约详情确认收到作品；收到客户确认后，也可在此代为登记。", html: '<label class="service-confirm-row"><input type="checkbox" id="serviceReceiptConfirmed"><span>已与客户核实作品签收</span></label>' + actionButton("complete", "确认客户已签收") };
     return { description: item.status === "rejected" ? "申请已拒绝，原因已同步给客户。" : item.status === "cancelled" ? "客户已取消预约，工单记录已保留。" : "客户已签收作品，售后服务已完成。", html: '<button class="btn" disabled>' + (item.status === "completed" ? '服务已完成' : '工单已结束') + '</button>' };
   }
   function renderDetail() {
     var item = selected();
     if (!item || !inScope(item)) { showList(); return; }
     renderedVersion = item.revision || item.updated;
-    imageCache = []; pendingRepairImages = null; imageReadVersion += 1;
+    imageCache = []; pendingReceivedImages = null; pendingRepairImages = null; imageReadVersion += 1;
     clearError("serviceActionError");
     $("serviceDetailNo").textContent = item.id;
     $("serviceDetailSubtitle").textContent = brandLabel(item.brand) + " · 创建于 " + item.created;
@@ -127,7 +129,7 @@
     $("serviceCustomerFields").innerHTML = field("客户", customer(item)) + field("手机号", item.phone) + field("作品型号", item.reference) + field("作品编号", item.serial) + field("专属套件寄送地址", item.kitAddress, true) + field("作品寄回地址", item.returnAddress, true);
     $("serviceInfoFields").innerHTML = field("品牌", brandLabel(item.brand)) + field("售后原因", item.reason) + field("负责门店", item.store) + field("门店联系电话", item.storePhone) + field("专属顾问", item.advisor) + field("客户说明", item.description, true) + field("门店服务说明（客户可见）", item.serviceNote, true)
       + (item.rejectionReason ? field("拒绝原因", item.rejectionReason, true) : "") + (item.cancelReason ? field("取消原因", item.cancelReason, true) : "");
-    $("serviceLogistics").innerHTML = '<article><strong>专属服务套件</strong><span>' + esc(item.kitTracking || "尚未寄出") + '</span></article><article><strong>客户寄出作品</strong><span>' + esc(item.inboundTracking || "尚未录入") + '</span></article><article><strong>服务报价</strong><span>' + esc(item.quoteAmount == null ? "待门店检测后更新" : "¥" + Number(item.quoteAmount).toLocaleString("zh-CN")) + '</span></article><article><strong>维修图片</strong>' + (item.serviceImages && item.serviceImages.length ? imageGrid(item.serviceImages) : '<span>尚未上传</span>') + '</article><article><strong>作品寄回</strong><span>' + esc(item.outboundTracking || "尚未寄出") + '</span></article>';
+    $("serviceLogistics").innerHTML = '<article><strong>专属服务套件</strong><span>' + esc(item.kitTracking || "尚未寄出") + '</span></article><article><strong>客户寄出作品</strong><span>' + esc(item.inboundTracking || "尚未录入") + '</span></article><article><strong>作品收件图片</strong>' + (item.receivedImages && item.receivedImages.length ? imageGrid(item.receivedImages) : '<span>尚未上传</span>') + '</article><article><strong>服务报价</strong><span>' + esc(item.quoteAmount == null ? "待门店检测后更新" : "¥" + Number(item.quoteAmount).toLocaleString("zh-CN")) + '</span></article><article><strong>售后完成图片</strong>' + (item.serviceImages && item.serviceImages.length ? imageGrid(item.serviceImages) : '<span>尚未上传</span>') + '</article><article><strong>作品寄回</strong><span>' + esc(item.outboundTracking || "尚未寄出") + '</span></article>';
     var action = actions(item); $("serviceActionDescription").textContent = action.description; $("serviceActionControls").innerHTML = action.html;
     $("serviceHistory").innerHTML = (item.history || []).slice().reverse().map(function (log) { return '<li><strong>' + esc(log.title) + '</strong><span>' + esc(log.time) + ' · ' + esc(log.actor === "customer" ? "客户" : "管理员") + '</span><p>' + esc(log.note) + '</p></li>'; }).join("");
   }
@@ -156,12 +158,16 @@
         if (apiAction === "approve" && (!data.storePhone || !data.advisor)) throw new Error("请填写门店联系电话和专属顾问。");
       } else if (action === "send-kit") data.kitTracking = $("serviceKitTracking").value.trim();
       else if (action === "send-watch") data.inboundTracking = $("serviceInboundTracking").value.trim();
+      else if (action === "receive") {
+        data.receivedImages = pendingReceivedImages === null ? item.receivedImages : pendingReceivedImages;
+        if (!data.receivedImages || !data.receivedImages.length) throw new Error("请上传至少一张作品收件图片。");
+      }
       else if (action === "finish-service") {
         data.quoteAmount = parseQuote($("serviceQuote").value, true);
         data.serviceNote = $("serviceNote").value.trim();
         data.serviceImages = pendingRepairImages === null ? item.serviceImages : pendingRepairImages;
         if (!data.serviceNote) throw new Error("请填写服务说明。");
-        if (!data.serviceImages || !data.serviceImages.length) throw new Error("请上传至少一张维修图片。");
+        if (!data.serviceImages || !data.serviceImages.length) throw new Error("请上传至少一张售后完成图片。");
       } else if (action === "return-watch") {
         if (!$("servicePaymentConfirmed").checked) throw new Error("请先核实收到客户线下付款。");
         data.outboundTracking = $("serviceOutboundTracking").value.trim();
@@ -174,14 +180,15 @@
   function openEdit() {
     var item = selected();
     try { requireScope(item); } catch (error) { errorAt("serviceActionError", error); return; }
-    editingId = item.id; editingVersion = item.revision || item.updated; pendingEditImages = null;
+    editingId = item.id; editingVersion = item.revision || item.updated; pendingEditReceivedImages = null; pendingEditServiceImages = null; editImageReadVersion += 1; editImageReadPending = 0;
     Object.keys(editFields).forEach(function (key) { $("editService" + editFields[key]).value = item[key] === "—" ? "" : item[key] || ""; });
     if (!item.lastName && !item.firstName) $("editServiceLastName").value = String(item.customer || "").replace(/\s*(先生|女士)$/, "");
     $("editServiceQuote").value = item.quoteAmount == null ? "" : item.quoteAmount;
-    $("editServiceImages").value = "";
-    $("editServiceImageHint").textContent = "最多4张，每张不超过600KB，合计不超过1.5MB。重新选择将替换现有图片；未选择则保留。";
+    $("editServiceReceivedImages").value = ""; $("editServiceImages").value = "";
+    $("editServiceReceivedImagePreview").innerHTML = imageGrid(item.receivedImages);
     $("editServiceImagePreview").innerHTML = imageGrid(item.serviceImages);
     $("editServiceStore").disabled = role !== "ADMIN";
+    $("serviceEditForm").querySelector('[type="submit"]').disabled = false;
     clearError("serviceEditError"); $("serviceEditDialog").showModal();
   }
   function saveEdit(event) {
@@ -196,12 +203,13 @@
       if (role !== "ADMIN") patch.store = item.store;
       patch.quoteAmount = parseQuote($("editServiceQuote").value, false);
       if (["payment", "return_sent", "completed"].includes(item.status) && patch.quoteAmount == null) throw new Error("已完成售后的工单需要保留服务报价。");
-      if (pendingEditImages !== null) patch.serviceImages = pendingEditImages;
+      if (pendingEditReceivedImages !== null) patch.receivedImages = pendingEditReceivedImages;
+      if (pendingEditServiceImages !== null) patch.serviceImages = pendingEditServiceImages;
       service.updateTicket(item.id, patch, "admin");
       $("serviceEditDialog").close(); renderDetail(); updateStores(); toast("工单资料已保存");
     } catch (error) { errorAt("serviceEditError", error); }
   }
-  function resetFilters() { ["serviceKeyword", "serviceDateFrom", "serviceDateTo"].forEach(function (id) { $(id).value = ""; }); ["serviceBrand", "serviceStatus", "serviceStore"].forEach(function (id) { $(id).value = "ALL"; }); renderList(); }
+  function resetFilters() { $("serviceKeyword").value = ""; ["serviceQueryField", "serviceBrand", "serviceStatus"].forEach(function (id) { $(id).value = "ALL"; }); renderList(); }
   function exportRows() {
     var rows = [["工单号", "品牌", "客户", "手机号", "作品型号", "作品编号", "售后原因", "状态", "负责门店", "门店电话", "专属顾问", "套件物流", "寄出物流", "寄回物流", "报价", "更新时间"]];
     filtered().forEach(function (item) { rows.push([item.id, brandLabel(item.brand), customer(item), item.phone, item.reference, item.serial, item.reason, statusOf(item).label, item.store, item.storePhone, item.advisor, item.kitTracking, item.inboundTracking, item.outboundTracking, item.quoteAmount == null ? "" : item.quoteAmount, item.updated]); });
@@ -222,23 +230,38 @@
   $("serviceActionControls").addEventListener("change", async function (event) {
     if (event.target.id === "serviceDecision") { $("serviceApprovalFields").hidden = event.target.value === "reject"; $("serviceRejectionField").hidden = event.target.value !== "reject"; }
     if (event.target.id === "serviceAssignStore") $("serviceStorePhone").value = event.target.value === "上海南京西路形象店" ? "021-62155167" : "";
-    if (event.target.id === "serviceRepairImages") {
+    if (event.target.id === "serviceReceivedImages" || event.target.id === "serviceRepairImages") {
+      var isReceived = event.target.id === "serviceReceivedImages";
       var version = ++imageReadVersion, button = $("serviceActionControls").querySelector("[data-service-action]"); button.disabled = true; clearError("serviceActionError");
-      try { var images = await readImages(event.target.files); if (version !== imageReadVersion) return; pendingRepairImages = images.length ? images : null; $("serviceRepairPreview").innerHTML = imageGrid(pendingRepairImages || selected().serviceImages); }
-      catch (error) { if (version === imageReadVersion) { pendingRepairImages = null; event.target.value = ""; errorAt("serviceActionError", error); } }
+      try {
+        var images = await readImages(event.target.files); if (version !== imageReadVersion) return;
+        if (isReceived) { pendingReceivedImages = images.length ? images : null; $("serviceReceivedPreview").innerHTML = imageGrid(pendingReceivedImages || selected().receivedImages); }
+        else { pendingRepairImages = images.length ? images : null; $("serviceRepairPreview").innerHTML = imageGrid(pendingRepairImages || selected().serviceImages); }
+      }
+      catch (error) { if (version === imageReadVersion) { if (isReceived) pendingReceivedImages = null; else pendingRepairImages = null; event.target.value = ""; errorAt("serviceActionError", error); } }
       finally { if (version === imageReadVersion) button.disabled = false; }
     }
   });
   $("serviceDetailHeadActions").addEventListener("click", function (event) { if (event.target.closest("[data-service-edit]")) openEdit(); });
   $("serviceEditForm").addEventListener("submit", saveEdit);
-  $("closeServiceEdit").addEventListener("click", function () { $("serviceEditDialog").close(); });
-  $("cancelServiceEdit").addEventListener("click", function () { $("serviceEditDialog").close(); });
-  $("editServiceImages").addEventListener("change", async function (event) {
-    var button = $("serviceEditForm").querySelector('[type="submit"]'); button.disabled = true; clearError("serviceEditError");
-    try { var images = await readImages(event.target.files); pendingEditImages = images.length ? images : null; $("editServiceImagePreview").innerHTML = imageGrid(pendingEditImages || service.getTicket(editingId).serviceImages); }
-    catch (error) { pendingEditImages = null; event.target.value = ""; errorAt("serviceEditError", error); }
-    finally { button.disabled = false; }
-  });
+  function closeEdit() { $("serviceEditDialog").close(); }
+  $("closeServiceEdit").addEventListener("click", closeEdit);
+  $("cancelServiceEdit").addEventListener("click", closeEdit);
+  $("serviceEditDialog").addEventListener("close", function () { editImageReadVersion += 1; editImageReadPending = 0; });
+  async function updateEditImages(event, type) {
+    var button = $("serviceEditForm").querySelector('[type="submit"]'), version = editImageReadVersion, targetId = editingId;
+    editImageReadPending += 1; button.disabled = true; clearError("serviceEditError");
+    try {
+      var images = await readImages(event.target.files), item = service.getTicket(editingId);
+      if (version !== editImageReadVersion || targetId !== editingId || !item) return;
+      if (type === "received") { pendingEditReceivedImages = images.length ? images : null; $("editServiceReceivedImagePreview").innerHTML = imageGrid(pendingEditReceivedImages || item.receivedImages); }
+      else { pendingEditServiceImages = images.length ? images : null; $("editServiceImagePreview").innerHTML = imageGrid(pendingEditServiceImages || item.serviceImages); }
+    }
+    catch (error) { if (version === editImageReadVersion && targetId === editingId) { if (type === "received") pendingEditReceivedImages = null; else pendingEditServiceImages = null; event.target.value = ""; errorAt("serviceEditError", error); } }
+    finally { if (version === editImageReadVersion && targetId === editingId) { editImageReadPending = Math.max(0, editImageReadPending - 1); button.disabled = editImageReadPending > 0; } }
+  }
+  $("editServiceReceivedImages").addEventListener("change", function (event) { updateEditImages(event, "received"); });
+  $("editServiceImages").addEventListener("change", function (event) { updateEditImages(event, "service"); });
   $("serviceExportBtn").addEventListener("click", exportRows);
   document.addEventListener("click", function (event) { var target = event.target.closest("[data-service-image]"); if (!target) return; var image = imageCache[Number(target.dataset.serviceImage)]; if (!image) return; $("serviceImageTitle").textContent = image.name; $("serviceImageFull").src = image.dataUrl; $("serviceImageFull").alt = image.name; $("serviceImageDialog").showModal(); });
   $("closeServiceImage").addEventListener("click", function () { $("serviceImageDialog").close(); });

@@ -3,7 +3,7 @@ type ServiceImage = {id:string;name:string;dataUrl:string};
 type ServiceHistory = {id:string;status:ServiceStatus;title:string;time:string;note:string;actor:string};
 interface ServiceTicket {
   revision?:string;
-  id:string;brand:'GP'|'UN';customerId:string;customer:string;salutation:string;lastName:string;firstName:string;phone:string;reference:string;serial:string;reason:string;description:string;kitAddress:string;returnAddress:string;status:ServiceStatus;store:string;storePhone:string;advisor:string;created:string;updated:string;kitTracking:string;inboundTracking:string;outboundTracking:string;quote:string;quoteAmount:number|null;serviceNote:string;serviceImages:ServiceImage[];rejectionReason:string;cancelReason:string;history:ServiceHistory[];
+  id:string;brand:'GP'|'UN';customerId:string;customer:string;salutation:string;lastName:string;firstName:string;phone:string;reference:string;serial:string;reason:string;description:string;kitAddress:string;returnAddress:string;status:ServiceStatus;store:string;storePhone:string;advisor:string;created:string;updated:string;kitTracking:string;inboundTracking:string;outboundTracking:string;quote:string;quoteAmount:number|null;serviceNote:string;receivedImages:ServiceImage[];serviceImages:ServiceImage[];rejectionReason:string;cancelReason:string;history:ServiceHistory[];
 }
 interface Window {
   SowindService: {
