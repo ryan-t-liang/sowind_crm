@@ -5,3 +5,5 @@ frontend/tsconfig.tsbuildinfo
 dist-site/
 .DS_Store
 qa-artifacts/
+frontend/public/service-model.js
+admin/service-model.js

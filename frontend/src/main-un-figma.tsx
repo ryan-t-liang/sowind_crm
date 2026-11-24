@@ -2,8 +2,8 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { TooltipProvider } from "./components/ui/tooltip";
 import { Toaster } from "./components/ui/sonner";
-import { FigmaMobileApp } from "./figma/FigmaMobileApp";
 import "./index.css";
+import { FigmaMobileApp } from "./figma/FigmaMobileApp";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

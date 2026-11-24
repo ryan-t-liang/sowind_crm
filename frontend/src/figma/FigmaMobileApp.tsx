@@ -1,462 +1,111 @@
-import { useEffect, useMemo, useState } from "react";
-import {
-  ArrowLeft,
-  ChevronDown,
-  ChevronRight,
-  CircleUserRound,
-  Headphones,
-  Home,
-  ImagePlus,
-  MapPin,
-  Menu,
-  PackageCheck,
-  Search,
-  ScanLine,
-  ShieldCheck,
-  Store,
-  Watch,
-  Wrench,
-} from "lucide-react";
+import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
+import { ChevronDown, ChevronLeft, ChevronRight, ScanLine, X, Watch, Headphones } from "lucide-react";
+import { Select as SelectPrimitive } from "radix-ui";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
-import "./figma-mobile.css";
-import "./figma-mobile-additions.css";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { FigmaArticles } from "./FigmaArticles";
+import "./figma-current.css";
 
 export type FigmaBrand = "GP" | "UN";
-type Page =
-  | "home"
-  | "service"
-  | "aftersales"
-  | "apply"
-  | "account"
-  | "records"
-  | "record"
-  | "works"
-  | "faq"
-  | "care";
-
-const stageLabels = [
-  "申请成功，待专属顾问与您联系",
-  "已拒绝",
-  "门店跟进中",
-  "专属配件已寄送",
-  "作品已发回",
-  "作品已收到，待售后",
-  "作品已完成售后，待付款",
-  "作品已寄回，待签收",
-  "服务完成",
-];
-
-const serviceReasons = [
-  "更换电池", "全面保养服务", "部件遗失/损坏", "功能失效", "腕表抛光/翻新",
-  "走时快", "走时慢", "走停", "腕表防水", "万年历调整", "摔落/震撞", "消磁", "其他问题",
-];
-
-const brandConfig = {
-  GP: {
-    chinese: "芝柏表",
-    english: "GIRARD-PERREGAUX",
-    accent: "#a58a6c",
-    reference: "81006-11-2010-1cm",
-    home: "./figma/gp-home.png",
-    service: "./figma/gp-service-hero.png",
-    watchmaker: "./figma/gp-watchmaker.png",
-    account: "./figma/gp-account-hero.png",
-    detail: "./figma/gp-detail-hero.png",
-    logo: "./figma/gp-logo-white.png",
-    product: "Laureato 桂冠系列",
-    serviceLine: "直播表 均享有5年保修",
-    serviceTitle: "匠艺无界 纵横时光",
-  },
-  UN: {
-    chinese: "雅典表",
-    english: "ULYSSE NARDIN",
-    accent: "#000000",
-    reference: "2405-500-2a-3a",
-    home: "./figma/un-home.png",
-    service: "./figma/un-service-hero.png",
-    watchmaker: "./figma/un-watchmaker.jpg",
-    account: "./figma/un-account-hero.jpg",
-    detail: "./figma/un-detail-hero.png",
-    logo: "./figma/un-logo.png",
-    product: "Freak 奇想系列",
-    serviceLine: "雅典表 均享有5年保修",
-    serviceTitle: "时空无间 纵贯海天",
-  },
-} as const;
-
-function usePage() {
-  const read = (): Page => {
-    const value = window.location.hash.replace(/^#\/?/, "") as Page;
-    return value || "service";
-  };
-  const [page, setPage] = useState<Page>(read);
-  useEffect(() => {
-    const onHash = () => setPage(read());
-    window.addEventListener("hashchange", onHash);
-    return () => window.removeEventListener("hashchange", onHash);
-  }, []);
-  const go = (next: Page) => {
-    window.location.hash = `/${next}`;
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
-  return { page, go };
+type Page = "home" | "service" | "aftersales" | "apply" | "account" | "records" | "record" | "works" | "faq" | "care";
+type Ticket = NonNullable<ReturnType<typeof window.SowindService.getTicket>>;
+const service = () => window.SowindService;
+const asset = (name: string) => "./figma/current/" + name;
+const brands = {
+ GP: { chinese:"芝柏表", english:"Girard-Perregaux", accent:"#997d63", paper:"#eae8df", reference:"81006-11-2010-1cm", product:"Laureato 桂冠系列", logo:"./figma/gp-logo-white.png", home:"./figma/gp-home.png", hero:"./figma/gp-service-hero.png", account:asset("01854.png"), detail:asset("abb57.png"), watchmaker:"./figma/gp-watchmaker.png", avatar:"./figma/gp-avatar-logo.png" },
+ UN: { chinese:"雅典表", english:"Ulysse Nardin", accent:"#000000", paper:"#f5f5f5", reference:"2405-500-2a-3a", product:"Freak 奇想系列", logo:"./figma/un-logo.png", home:"./figma/un-home.png", hero:"./figma/un-service-hero.png", account:asset("01854.png"), detail:asset("626e9.png"), watchmaker:asset("28222.png"), avatar:"./figma/un-logo.png" }
+};
+function useNavigation() {
+ const read=()=>{ const parts=location.hash.replace(/^#\/?/,"").split("/"); return {page:(parts[0]||"service") as Page,id:decodeURIComponent(parts[1]||"")}; };
+ const [route,setRoute]=useState(read);
+ useEffect(()=>{const listen=()=>{setRoute(read());window.scrollTo(0,0)};addEventListener("hashchange",listen);return()=>removeEventListener("hashchange",listen)},[]);
+ const go=(page:Page,id="")=>{location.hash="/"+page+(id?"/"+encodeURIComponent(id):"");};
+ return {...route,go};
 }
-
-function BrandMark({ brand, dark = false }: { brand: FigmaBrand; dark?: boolean }) {
-  const cfg = brandConfig[brand];
-  if (brand === "GP")
-    return (
-      <img
-        className={`fm-brand-image ${dark ? "is-dark" : ""}`}
-        src={cfg.logo}
-        alt="GIRARD-PERREGAUX"
-      />
-    );
-  return (
-    <img
-      className={`fm-brand-image fm-un-logo ${dark ? "is-dark" : ""}`}
-      src={cfg.logo}
-      alt="ULYSSE NARDIN"
-    />
-  );
+type Go = (page:Page,id?:string)=>void;
+function DesignIcon({name,className=""}:{name:string;className?:string}) {return <img className={"design-icon "+className} src={asset(name)} alt="" aria-hidden="true"/>}
+function BrandMark({brand,dark=false}:{brand:FigmaBrand;dark?:boolean}) {return <img className={"brand-mark "+(dark?"dark":"")+" brand-"+brand.toLowerCase()} src={brands[brand].logo} alt={brands[brand].english}/>;}
+function StatusBar({light=false}:{light?:boolean}) {
+ return <div className={"status-bar "+(light?"light":"")} aria-hidden="true"><img className="status-time" src={asset(light?"09a7f.svg":"c2db0.svg")} alt="9:41"/><div className="status-signals"><img src={asset(light?"81cd1.svg":"192eb.svg")} alt=""/><img src={asset(light?"bc39d.svg":"53f0e.svg")} alt=""/><span className="battery"><img src={asset(light?"7fa17.svg":"9338b.svg")} alt=""/><img src={asset(light?"5313b.svg":"40e90.svg")} alt=""/><img src={asset(light?"7889a.svg":"90147.svg")} alt=""/></span></div></div>
 }
-
-function StatusBar({ light = false }: { light?: boolean }) {
-  return (
-    <div className={`fm-statusbar ${light ? "is-light" : ""}`}>
-      <strong>9:41</strong>
-      <span>▮▮▮ ⌁ ▰</span>
-    </div>
-  );
+function Header({brand,title,back,light=false,go,hideLogo=false}:{brand:FigmaBrand;title?:string;back?:()=>void;light?:boolean;go:Go;hideLogo?:boolean}) {
+ return <header className={"mini-header "+(light?"light":"")}>
+  <div className="header-pill left-pill">
+   <button aria-label={back?"返回":"搜索"} onClick={back||(()=>toast.info("请输入作品编号以查询您的作品"))}>{back?<ChevronLeft/>:<DesignIcon name={light?"da9d2.svg":"8a17c.svg"}/>}</button>
+   <i/><button aria-label="我的作品" onClick={()=>go("works")}><DesignIcon name={back?"a8378.svg":light?"3baa3.svg":"bba48.svg"}/></button>
+   <i/><button aria-label="门店" onClick={()=>toast.info("上海南京西路形象店 · 021-62155167")}><DesignIcon name={back?(light?"3baa3.svg":"bba48.svg"):light?"bee7a.svg":"c1177.svg"}/></button>
+  </div>
+  {title?<span className="header-title">{title}</span>:!hideLogo?<BrandMark brand={brand==="UN"&&/^#\/(account|record)(\/|$)/.test(location.hash)?"GP":brand} dark={!light}/>:null}
+  <div className="header-pill right-pill"><button aria-label="更多" onClick={()=>go("account")}><DesignIcon name={light?"115ac.svg":"894e0.svg"}/></button><i/><button aria-label="返回首页" onClick={()=>go("home")}><DesignIcon name={light?"b7e30.svg":"382c7.svg"}/></button></div>
+ </header>
 }
-
-function MiniHeader({
-  brand,
-  back,
-  title,
-  light = false,
-}: {
-  brand: FigmaBrand;
-  back?: () => void;
-  title?: string;
-  light?: boolean;
-}) {
-  return (
-    <header className={`fm-mini-header ${light ? "is-light" : ""}`}>
-      <div className="fm-mini-pill">
-        {back ? (
-          <button aria-label="返回" onClick={back}>
-            <ArrowLeft />
-          </button>
-        ) : (
-          <button aria-label="搜索">
-            <Search />
-          </button>
-        )}
-        <i />
-        <button aria-label="作品">
-          <Watch />
-        </button>
-        <i />
-        <button aria-label="门店">
-          <MapPin />
-        </button>
-      </div>
-      {title ? <span className="fm-header-title">{title}</span> : back ? <span /> : <BrandMark brand={brand} />}
-      <div className="fm-mini-pill fm-mini-right">
-        <button aria-label="更多">
-          <Menu />
-        </button>
-        <i />
-        <button aria-label="关闭">
-          <CircleUserRound />
-        </button>
-      </div>
-    </header>
-  );
+function Chrome({brand,title,back,light=false,go,hideLogo=false}:{brand:FigmaBrand;title?:string;back?:()=>void;light?:boolean;go:Go;hideLogo?:boolean}) {return <><StatusBar light={light}/><Header {...{brand,title,back,light,go,hideLogo}}/></>}
+function Nav({brand,page,go}:{brand:FigmaBrand;page:Page;go:Go}) {
+ return <nav className="bottom-nav" aria-label="主导航">{(["首页","系列","门店","服务","我的"] as const).map((label,i)=>{const active=(page==="home"&&i===0)||(page==="service"&&i===3)||(page==="account"&&i===4);return <button key={label} className={active?"active":""} onClick={()=>i===0?go("home"):i===3?go("service"):i===4?go("account"):i===1?go("works"):toast.info("上海南京西路形象店 · 021-62155167")}><span className="nav-icon">{i===0?<img src={brand==="GP"?"./figma/gp-monogram.png":asset("2cef7.svg")} alt=""/>:<DesignIcon name={["","8f0ca.svg","aa294.svg","28eb4.svg","9a6f6.svg"][i]}/>}</span><span>{label}</span></button>})}<div className="home-indicator"/></nav>
 }
-
-function BottomNav({ brand, page, go }: { brand: FigmaBrand; page: Page; go: (p: Page) => void }) {
-  const items: Array<[Page, string, typeof Home]> = [
-    ["home", "首页", Home],
-    ["home", "系列", Search],
-    ["home", "门店", Store],
-    ["service", "服务", PackageCheck],
-    ["account", "我的", CircleUserRound],
-  ];
-  return (
-    <nav className="fm-bottom-nav" aria-label="主导航">
-      {items.map(([target, label, Icon], index) => {
-        const active = label === "服务" ? ["service", "aftersales", "faq", "care"].includes(page) : label === "我的" ? ["account", "records", "record", "works"].includes(page) : page === target && index === 0;
-        return (
-          <button key={`${label}-${index}`} className={active ? "is-active" : ""} onClick={() => go(target)}>
-            {index === 0 ? <span className="fm-nav-monogram">{brand}</span> : <Icon />}
-            <span>{label}</span>
-          </button>
-        );
-      })}
-      <div className="fm-home-indicator" />
-    </nav>
-  );
+function Landing({brand,go,home=false}:{brand:FigmaBrand;go:Go;home?:boolean}) {const cfg=brands[brand];return <section className={"landing "+(home?"home":"service")} style={{backgroundImage:"url("+(home?cfg.home:cfg.hero)+")"}}><Chrome brand={brand} go={go} light hideLogo={!home&&brand==="UN"}/><div className="landing-copy"><p>{home?(brand==="GP"?"Laureato桂冠系列":"FREAK ONE奇想腕表"):(brand==="GP"?"直播表":"雅典表")+" 均享有5年保修"}</p><h1>{home?(brand==="GP"?"历久弥新的设计传奇":"时序之力 蕴于腕间"):(brand==="GP"?"匠艺无界 纵横时光":"时空无间 纵贯海天")}</h1><div className="landing-actions">{home?<><Button variant="outline" onClick={()=>go("works")}>即刻探索</Button><Button variant="outline" onClick={()=>go("works")}>探索系列</Button></>:<Button variant="outline" onClick={()=>go("aftersales")}>售后服务</Button>}</div></div>{home?<button className="landing-scroll" aria-label="了解售后服务" onClick={()=>go("service")}>↓</button>:<button className="faq-link" onClick={()=>go("faq")}>常见问题</button>}<Nav brand={brand} page={home?"home":"service"} go={go}/></section>}
+function Aftersales({brand,go}:{brand:FigmaBrand;go:Go}) {const [slide,setSlide]=useState(0),cfg=brands[brand];return <section className={"aftersales-page "+(brand==="UN"?"paper":"")}><Chrome brand={brand} go={go} back={brand==="UN"?()=>go("service"):undefined} hideLogo/><img className={"aftersales-brand "+brand.toLowerCase()} src={asset(brand==="GP"?"8e105.svg":"925c7.png")} alt={cfg.english}/><div className="watchmaker-carousel"><button aria-label="上一张" onClick={()=>setSlide((slide+1)%2)}><ChevronLeft/></button><img src={slide?cfg.detail:cfg.watchmaker} alt={slide?"腕表专业检修":"制表师养护腕表"}/><button aria-label="下一张" onClick={()=>setSlide((slide+1)%2)}><ChevronRight/></button></div><h1>{brand==="GP"?"腕表保养":"腕表养护"}</h1><p className="care-intro">{brand==="GP"?<>建议每3至5年为腕表进行<br/>专业检修与养护</>:<>建议每3到5年对腕表进行一次检修和保养<br/>即刻预约腕表顾问进行养护</>}</p><Button className="care-book" onClick={()=>go("apply")}>预约腕表养护</Button><button className="care-link" onClick={()=>go("care")}>了解腕表养护</button></section>}
+function Field({label,value,onChange,type="text",children}:{label:string;value:string;onChange:(v:string)=>void;type?:string;children?:ReactNode}) {return <label className="form-line"><input aria-label={label} placeholder={label} value={value} type={type} onChange={e=>onChange(e.target.value)}/>{children}</label>}
+function SelectLine({label,value,onChange,options}:{label:string;value:string;onChange:(v:string)=>void;options:string[]}) {return <SelectPrimitive.Root value={value} onValueChange={onChange}><SelectPrimitive.Trigger aria-label={label} className="select-line"><SelectPrimitive.Value placeholder={label}/><SelectPrimitive.Icon><ChevronDown/></SelectPrimitive.Icon></SelectPrimitive.Trigger><SelectPrimitive.Portal><SelectPrimitive.Content className="select-menu" position="popper"><SelectPrimitive.Viewport>{options.map(v=><SelectPrimitive.Item key={v} value={v} className="select-option"><SelectPrimitive.ItemText>{v}</SelectPrimitive.ItemText></SelectPrimitive.Item>)}</SelectPrimitive.Viewport></SelectPrimitive.Content></SelectPrimitive.Portal></SelectPrimitive.Root>}
+function Modal({brand,title,description,open,onOpenChange,children,footer,sheet=false}:{brand:FigmaBrand;title:string;description?:ReactNode;open:boolean;onOpenChange:(v:boolean)=>void;children?:ReactNode;footer?:ReactNode;sheet?:boolean}) {return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent showCloseButton={false} className={"prototype-modal "+(sheet?"bottom-sheet":"")} style={{"--brand":brands[brand].accent,"--paper":brands[brand].paper} as CSSProperties}><DialogHeader><DialogTitle>{title}</DialogTitle><DialogDescription className={!description?"sr-only":""}>{description||title}</DialogDescription></DialogHeader>{children}{footer&&<DialogFooter>{footer}</DialogFooter>}</DialogContent></Dialog>}
+function ProductPicker({brand,open,onOpenChange,onSelect}:{brand:FigmaBrand;open:boolean;onOpenChange:(v:boolean)=>void;onSelect:(serial:string)=>void}) {
+ const [serial,setSerial]=useState(""),[step,setStep]=useState<"serial"|"confirm"|"help">("serial");
+ useEffect(()=>{if(open)setStep("serial")},[open]);
+ return <Modal brand={brand} title="认证我的作品" open={open} onOpenChange={onOpenChange} sheet footer={step==="confirm"?<><Button variant="outline" onClick={()=>setStep("serial")}>上一步</Button><Button onClick={()=>{onSelect(serial.trim());onOpenChange(false)}}>确定</Button></>:<Button disabled={!serial.trim()} onClick={()=>setStep("confirm")}>下一步</Button>}>
+  <div className="entry-panel">{step==="confirm"?<><p>作品信息</p><div className="product-confirm"><strong>{brands[brand].reference}</strong><span>{serial}</span></div></>:<><p>作品编号</p><div className="entry-input"><input aria-label="作品编号" placeholder="请手动或扫码输入作品编号" value={serial} onChange={e=>setSerial(e.target.value)}/><button aria-label="模拟扫码" onClick={()=>{setSerial(brand+"17910001");toast.success("已模拟识别作品编号")}}><ScanLine/></button></div><button className="underlined" onClick={()=>setStep(step==="help"?"serial":"help")}>如何找到我的作品编号？</button>{step==="help"&&<p className="number-help">作品编号位于腕表底盖或保修凭证上，请核对后输入。</p>}</>}</div>
+ </Modal>
 }
-
-function ServiceLanding({ brand, go }: { brand: FigmaBrand; go: (p: Page) => void }) {
-  const cfg = brandConfig[brand];
-  return (
-    <section className="fm-service-landing" style={{ backgroundImage: `url(${cfg.service})` }}>
-      <StatusBar light />
-      <MiniHeader brand={brand} light />
-      <div className="fm-service-shade" />
-      <div className="fm-service-copy">
-        <p>{cfg.serviceLine}</p>
-        <h1>{cfg.serviceTitle}</h1>
-        <Button variant="outline" onClick={() => go("aftersales")}>售后服务</Button>
-        <button className="fm-link-light" onClick={() => go("faq")}>常见问题</button>
-      </div>
-      <BottomNav brand={brand} page="service" go={go} />
-    </section>
-  );
+function Apply({brand,go,ticket}:{brand:FigmaBrand;go:Go;ticket?:Ticket}) {
+ const cfg=brands[brand];
+ const [editingVersion]=useState(()=>ticket?.revision||ticket?.updated);
+ const [form,setForm]=useState({salutation:ticket?.salutation||"",lastName:ticket?.lastName||"",firstName:ticket?.firstName||"",phone:ticket?.phone||"",serial:ticket?.serial||"",reason:ticket?.reason||"",description:ticket?.description||"",kitAddress:ticket?.kitAddress||"",returnAddress:ticket?.returnAddress||""});
+ const [same,setSame]=useState(false),[consent,setConsent]=useState(Boolean(ticket)),[terms,setTerms]=useState(false),[product,setProduct]=useState(false),[success,setSuccess]=useState<Ticket|null>(null);
+ const set=(key:keyof typeof form)=>(v:string)=>setForm(old=>({...old,[key]:v,...(key==="kitAddress"&&same?{returnAddress:v}:{})}));
+ const submit=()=>{try{if(!consent)throw new Error("请先阅读并同意隐私政策与服务条款");if(ticket){const current=service().getTicket(ticket.id);if(!current||(current.revision||current.updated)!==editingVersion)throw new Error("这条预约已更新。您的填写内容已保留，请返回详情后重新打开修改。");}const input={...form,customer:form.lastName+form.firstName+" "+form.salutation,reference:cfg.reference};const saved=ticket?service().updateTicket(ticket.id,input,"customer"):service().createTicket({...input,brand,customerId:"demo-"+brand});setSuccess(saved)}catch(e){toast.error((e as Error).message)}};
+ return <section className="form-page"><Chrome brand={brand} title="预约售后服务" back={()=>go(ticket?"record":"aftersales",ticket?.id)} go={go}/><form onSubmit={e=>{e.preventDefault();submit()}}>
+  <div className="form-fields"><SelectLine label="称谓*" value={form.salutation} onChange={set("salutation")} options={["先生","女士"]}/><div className="form-two"><Field label="姓氏*" value={form.lastName} onChange={set("lastName")}/><Field label="名字*" value={form.firstName} onChange={set("firstName")}/></div><Field label="电话" value={form.phone} onChange={set("phone")} type="tel">{!form.phone&&<button type="button" className="underlined authorize-phone" onClick={()=>{set("phone")("18717822727");toast.success("已填入演示手机号")}}>授权手机号</button>}</Field><div className="product-field"><p>产品*</p><Button type="button" variant="outline" onClick={()=>setProduct(true)}><DesignIcon name="0d824.svg"/>添加产品</Button>{form.serial&&<div className="selected-product"><span>{cfg.reference}</span><button type="button" aria-label="移除产品" onClick={()=>set("serial")("")}><X/></button></div>}</div><SelectLine label="选择售后原因*" value={form.reason} onChange={set("reason")} options={service().reasons}/><Field label="留言和说明" value={form.description} onChange={set("description")}/><Field label="专属服务套件寄送地址*" value={form.kitAddress} onChange={set("kitAddress")}/><div className="return-field"><Field label="作品寄回地址*" value={form.returnAddress} onChange={set("returnAddress")}/><label className="same-address"><Checkbox checked={same} onCheckedChange={v=>{setSame(Boolean(v));if(v)set("returnAddress")(form.kitAddress)}}/>与寄送地址相同</label></div></div>
+  <label className="consent"><Checkbox checked={consent} onCheckedChange={v=>setConsent(Boolean(v))}/><span>我已阅读并同意 {cfg.english} <button type="button" onClick={()=>setTerms(true)}>隐私政策与服务条款</button>，并授权其按照相关政策处理我的个人信息。*</span></label><Button type="submit" className="submit-application">{ticket?"保存修改":"提交"}</Button>
+ </form><div className="page-indicator"/><ProductPicker brand={brand} open={product} onOpenChange={setProduct} onSelect={set("serial")}/>
+ <Modal brand={brand} title="隐私政策与服务条款" open={terms} onOpenChange={setTerms} description="售后服务预约信息说明" footer={<Button onClick={()=>{setConsent(true);setTerms(false)}}>同意并返回</Button>}><div className="terms"><p>您提供的作品信息、联系方式及收件地址用于售后申请、服务联系和作品寄送。</p><p>服务项目、报价及预计周期以品牌服务中心检测后与您确认的结果为准。寄送作品前请按顾问指引使用妥善包装，并保留物流凭证。</p><p>本演示中的资料仅保存在您的浏览器中；正式服务条款以品牌公布的有效文本为准。</p></div></Modal>
+ <Modal brand={brand} title={ticket?"预约修改成功":"售后申请提交成功"} open={Boolean(success)} onOpenChange={v=>!v&&setSuccess(null)} description="已提交，待专属顾问与您联系。您可在售后预约记录中查看进度。" footer={<><Button variant="outline" onClick={()=>go("account")}>返回我的</Button><Button onClick={()=>go("record",success?.id)}>查看详情</Button></>}/>
+ </section>
 }
-
-function FlowStrip() {
-  return (
-    <div className="fm-flow" aria-label="售后服务流程">
-      {["提交申请", "顾问联系", "专业养护", "安心送回"].map((label, i) => (
-        <div key={label}>
-          <span>{String(i + 1).padStart(2, "0")}</span>
-          <p>{label}</p>
-        </div>
-      ))}
-    </div>
-  );
+function statusName(ticket:Ticket){return service().statusCatalog[ticket.status]?.label||ticket.status;}
+function groupName(ticket:Ticket){return ticket.status==="completed"?"已完成":["cancelled","rejected"].includes(ticket.status)?ticket.status==="rejected"?"已拒绝":"已取消":"进行中";}
+function StatusCard({ticket,onDetail}:{ticket:Ticket;onDetail:()=>void}) {return <article className="status-card"><div className="status-card-top"><strong>{ticket.status==="submitted"?"申请成功，待专属顾问与您联系":statusName(ticket)}</strong><button onClick={onDetail}>查看详情 <ChevronRight/></button></div><span className="status-chip">{groupName(ticket)}</span><hr/><p>{ticket.customer} {ticket.phone}</p><p><DesignIcon name="0d824.svg"/>{ticket.reference}</p><p><DesignIcon name="acb93.svg"/>{ticket.reason}</p></article>}
+function Account({brand,go,tickets}:{brand:FigmaBrand;go:Go;tickets:Ticket[]}) {const cfg=brands[brand];return <section className="account-page"><div className="account-hero" style={{backgroundImage:"url("+cfg.account+")"}}><Chrome brand={brand} go={go} light/><div className="account-greeting"><h1>你好，梁 先生</h1><button onClick={()=>toast.info("您可在预约表单中更新本次服务的联系人资料")}>编辑资料</button></div></div><div className="account-body"><div className="section-title"><h2>售后预约记录</h2><button onClick={()=>go("records")}>查看全部</button></div>{tickets.length?<StatusCard ticket={tickets[0]} onDetail={()=>go("record",tickets[0].id)}/>:<div className="empty-appointment" style={{backgroundImage:"url("+cfg.watchmaker+")"}}><span>暂无预约</span><button onClick={()=>go("apply")}>去预约</button></div>}<button className="account-row" onClick={()=>toast.success("已关注"+cfg.chinese)}><span className="avatar"><img src={cfg.avatar} alt=""/></span><span><strong>{cfg.chinese}</strong><small>探索更多非凡时刻</small></span><b>立即关注</b></button><button className="account-row" onClick={()=>toast.info("上海南京西路形象店 · 021-62155167")}><span className="avatar"><Headphones/></span><span><strong>客服咨询</strong><small>随时欢迎您的垂询</small></span><b>立即咨询</b></button></div><Nav brand={brand} page="account" go={go}/></section>}
+function Records({brand,go,tickets}:{brand:FigmaBrand;go:Go;tickets:Ticket[]}) {const [tab,setTab]=useState("进行中"),filtered=tickets.filter(t=>tab==="已取消"?["cancelled","rejected"].includes(t.status):groupName(t)===tab);return <section className="records-page"><Chrome brand={brand} title="售后预约记录" back={()=>go("account")} go={go}/><div className="record-tabs">{["进行中","已完成","已取消"].map(t=><button key={t} className={t===tab?"active":""} onClick={()=>setTab(t)}>{t}</button>)}</div><div className="records-list">{filtered.map(t=><StatusCard key={t.id} ticket={t} onDetail={()=>go("record",t.id)}/>)}{!filtered.length&&<div className="records-empty"><DesignIcon name="68dfe.svg"/><p>{tab==="进行中"?"暂无售后预约":"暂无"+tab+"预约"}</p>{tab==="进行中"&&<Button variant="outline" onClick={()=>go("apply")}>去预约</Button>}</div>}</div></section>}
+function History({ticket,onImage}:{ticket:Ticket;onImage:(src:string)=>void}) {
+ return <ol className="ticket-timeline">{[...ticket.history].reverse().map((event,i)=><li key={event.id||event.time+i} className={i===0?"current":""}><span className="timeline-dot"/><h3>{event.title}</h3><time>{event.time}</time><p>{event.note}</p>{["received","payment"].includes(event.status)&&ticket.serviceImages.length>0&&<div className="timeline-images">{ticket.serviceImages.map(img=><button key={img.id} onClick={()=>onImage(img.dataUrl)} aria-label={"查看图片 "+img.name}><img src={img.dataUrl} alt={img.name}/></button>)}</div>}{event.status==="payment"&&ticket.quoteAmount!==null&&<div className="timeline-quote">服务报价：{ticket.quote}</div>}</li>)}</ol>
 }
-
-function Aftersales({ brand, go }: { brand: FigmaBrand; go: (p: Page) => void }) {
-  const cfg = brandConfig[brand];
-  const prototypeEmail = brand === "GP" ? "clientservice.cn@girard-perregaux.com" : "clientservice.cn@ulysse-nardin.com";
-  return (
-    <section className={`fm-paper fm-aftersales fm-${brand.toLowerCase()}`}>
-      <StatusBar />
-      <MiniHeader brand={brand} back={() => go("service")} />
-      <div className="fm-aftersales-inner">
-        <BrandMark brand={brand} dark />
-        {brand === "UN" && <p className="fm-brand-claim">雅 典 表 · 生 为 不 同</p>}
-        <div className="fm-watchmaker-wrap">
-          <button aria-label="上一张">‹</button>
-          <img src={cfg.watchmaker} alt={`${cfg.chinese}制表师保养腕表`} />
-          <button aria-label="下一张">›</button>
-        </div>
-        <h1>腕表养护</h1>
-        <p className="fm-aftersales-copy">建议每3到5年为腕表进行一次检修和保养<br />即刻预约腕表顾问进行养护</p>
-        <FlowStrip />
-        <Button className="fm-primary-pill" onClick={() => go("apply")}>预约腕表养护</Button>
-        <button className="fm-text-link" onClick={() => go("care")}>了解腕表养护</button>
-        <aside className="fm-web-contact"><strong>网页端售后联系</strong><a href={`mailto:${prototypeEmail}`}>{prototypeEmail}</a><small>原型联系邮箱，上线前请由品牌方确认。</small></aside>
-      </div>
-    </section>
-  );
+function Detail({brand,go,ticket}:{brand:FigmaBrand;go:Go;ticket?:Ticket}) {
+ const [tab,setTab]=useState("预约信息"),[sheet,setSheet]=useState(false),[tracking,setTracking]=useState(""),[confirm,setConfirm]=useState<"tracking"|"received"|"cancel"|null>(null),[image,setImage]=useState("");
+ const perform=(action:string,data:Record<string,unknown>={})=>{if(!ticket)return;try{service().transition(ticket.id,action,data,"customer");setConfirm(null);setSheet(false);toast.success(action==="complete"?"已确认签收，服务完成":action==="cancel"?"预约已取消":"快递单号已提交");}catch(e){toast.error((e as Error).message)}};
+ if(!ticket)return <section className="records-page"><Chrome brand={brand} title="预约详情" back={()=>go("records")} go={go}/><div className="records-empty"><p>未找到该售后预约</p><Button onClick={()=>go("records")}>返回服务记录</Button></div></section>;
+ const cfg=brands[brand],closed=["completed","cancelled","rejected"].includes(ticket.status);
+ return <section className="detail-page"><div className="detail-hero" style={{backgroundImage:"url("+cfg.detail+")"}}><Chrome brand={brand} light go={go}/><h1>您已预约售后服务</h1></div><div className="detail-body"><div className="ticket-number">{cfg.chinese}售后单号：{ticket.id}</div><div className="detail-surface"><div className="detail-tabs">{["预约信息","工单记录"].map(t=><button key={t} className={tab===t?"active":""} onClick={()=>setTab(t)}>{brand==="UN"&&t==="预约信息"?"预约记录":t}</button>)}</div>{tab==="工单记录"?<History ticket={ticket} onImage={setImage}/>:<div className="appointment-info"><div className="detail-status"><strong>{statusName(ticket)}</strong>{ticket.status==="kit_sent"&&<button className="underlined" onClick={()=>setSheet(true)}>填写快递单号</button>}</div><span className="status-chip">{groupName(ticket)}</span><div className="detail-group customer-group"><strong>{ticket.customer}</strong><p><DesignIcon name="a15ae.svg"/>{ticket.phone}</p></div><div className="detail-group"><p><DesignIcon name="0d824.svg"/>{ticket.reference}</p></div><div className="detail-group"><p><DesignIcon name="acb93.svg"/>{ticket.reason}</p><p><DesignIcon name="643f5.svg"/>{ticket.description||"暂无留言"}</p></div><div className="address-group"><p><DesignIcon name="21dc1.svg"/>{ticket.kitAddress}</p><small>*专属服务套件的寄送地址</small><p><DesignIcon name="21dc1.svg"/>{ticket.returnAddress}</p><small>*作品的寄回地址</small></div>{ticket.status==="rejected"&&<p className="rejection-reason">{ticket.rejectionReason}</p>}</div>}</div></div>{!closed&&<div className="detail-actions">{ticket.status==="return_sent"?<Button className="full" onClick={()=>setConfirm("received")}>我已收到作品</Button>:<><Button variant="outline" disabled={!service().canCancel(ticket)} onClick={()=>setConfirm("cancel")}>取消预约</Button><Button disabled={!service().canEdit(ticket)} onClick={()=>go("apply",ticket.id)}>修改预约</Button></>}</div>}
+ <Modal brand={brand} title="填写您的快递单号" open={sheet} onOpenChange={setSheet} sheet footer={<Button onClick={()=>{if(!/^[a-zA-Z0-9-]{6,40}$/.test(tracking.trim()))return toast.error("请输入6至40位有效快递单号");setSheet(false);setConfirm("tracking")}}>提交</Button>}><div className="entry-panel"><p>快递单号</p><div className="entry-input"><input aria-label="快递单号" placeholder="请输入快递单号" value={tracking} onChange={e=>setTracking(e.target.value)}/><button className="underlined paste" onClick={async()=>{try{setTracking(await navigator.clipboard.readText())}catch{toast.info("请长按输入框粘贴快递单号")}}}>粘贴</button></div></div></Modal>
+ <Modal brand={brand} title={confirm==="tracking"?"确认快递单号":confirm==="received"?"签收确认":"取消预约"} open={Boolean(confirm)} onOpenChange={v=>!v&&setConfirm(null)} description={confirm==="tracking"?<>请确认您作品寄回的快递单号为<br/><span className="accent">{tracking}</span></>:confirm==="received"?"请确认您已收到作品。如果疑问可随时联系"+ticket.store+"（"+ticket.storePhone+"）。":"取消后记录将保留在“已取消”中。如需售后服务，可重新提交申请。"} footer={<><Button variant="outline" onClick={()=>{if(confirm==="tracking")setSheet(true);setConfirm(null)}}>返回</Button><Button onClick={()=>confirm==="tracking"?perform("send-watch",{inboundTracking:tracking.trim()}):confirm==="received"?perform("complete"):perform("cancel",{cancelReason:"客户取消预约"})}>确定</Button></>}/>
+ <Modal brand={brand} title="服务图片" open={Boolean(image)} onOpenChange={v=>!v&&setImage("")} footer={<Button onClick={()=>setImage("")}>返回</Button>}><img className="preview-image" src={image||undefined} alt="服务图片"/></Modal></section>
 }
-
-function UnderlineField({ label, value, onChange, half = false }: { label: string; value: string; onChange: (v: string) => void; half?: boolean }) {
-  return (
-    <label className={`fm-field ${half ? "is-half" : ""}`}>
-      <span>{label}</span>
-      <input value={value} onChange={(event) => onChange(event.target.value)} />
-    </label>
-  );
-}
-
-function ApplyPage({ brand, go, onSubmit }: { brand: FigmaBrand; go: (p: Page) => void; onSubmit: () => void }) {
-  const cfg = brandConfig[brand];
-  const [productOpen, setProductOpen] = useState(false);
-  const [serial, setSerial] = useState("");
-  const [product, setProduct] = useState("");
-  const [consent, setConsent] = useState(false);
-  const [reason, setReason] = useState("");
-  const [termsOpen, setTermsOpen] = useState(false);
-  const [successOpen, setSuccessOpen] = useState(false);
-  const [form, setForm] = useState({ salutation: "先生", last: "梁", first: "桐", phone: "18717822727", note: "腕表买回来几年了，链条有划痕需要抛光下", kit: "上海市长宁区愚园路1108号创邑园区2号2楼", back: "上海市长宁区愚园路1108号创邑园区2号2楼" });
-  const set = (key: keyof typeof form) => (value: string) => setForm((old) => ({ ...old, [key]: value }));
-  const submit = () => {
-    if (!product || !reason || !consent) {
-      toast.error("请完成产品、售后原因和隐私授权信息");
-      return;
-    }
-    onSubmit();
-    setSuccessOpen(true);
-  };
-  return (
-    <section className="fm-page fm-apply-page">
-      <StatusBar />
-      <MiniHeader brand={brand} back={() => go("aftersales")} title="预约售后服务" />
-      <div className="fm-form">
-        <label className="fm-select-line"><span>称谓*</span><select value={form.salutation} onChange={(e) => set("salutation")(e.target.value)}><option>先生</option><option>女士</option></select><ChevronDown /></label>
-        <div className="fm-two"><UnderlineField label="姓氏*" value={form.last} onChange={set("last")} half /><UnderlineField label="名字*" value={form.first} onChange={set("first")} half /></div>
-        <UnderlineField label="电话" value={form.phone} onChange={set("phone")} />
-        <div className="fm-product-field"><span>产品*</span><button onClick={() => setProductOpen(true)}><Watch />{product || "添加产品"}</button></div>
-        <label className="fm-select-line"><span>选择售后原因*</span><select value={reason} onChange={(e) => setReason(e.target.value)}><option value="">请选择</option>{serviceReasons.map((item) => <option key={item}>{item}</option>)}</select><ChevronDown /></label>
-        <UnderlineField label="留言和说明" value={form.note} onChange={set("note")} />
-        <UnderlineField label="专属服务套件寄送地址*" value={form.kit} onChange={set("kit")} />
-        <div className="fm-return-address"><UnderlineField label="作品寄回地址*" value={form.back} onChange={set("back")} /><label className="fm-same-address"><Checkbox checked={form.back === form.kit} onCheckedChange={(v) => v && setForm((old) => ({ ...old, back: old.kit }))} />与寄送地址相同</label></div>
-        <label className="fm-consent"><Checkbox checked={consent} onCheckedChange={(value) => setConsent(Boolean(value))} /><span>我已阅读并同意 {cfg.english.replace(" ", "-")} <button type="button" onClick={() => setTermsOpen(true)}>隐私政策与服务条款</button>，并授权其按照相关政策处理我的个人信息。*</span></label>
-        <Button className="fm-submit" onClick={submit}>提交</Button>
-      </div>
-      <Dialog open={productOpen} onOpenChange={setProductOpen}>
-        <DialogContent className="fm-product-dialog">
-          <DialogHeader><DialogTitle>认证我的作品</DialogTitle><DialogDescription>扫描或手动输入作品编号，以关联您的腕表。</DialogDescription></DialogHeader>
-          <div className="fm-product-panel">
-            <h3>作品编号</h3>
-            <div><input placeholder="请手动或扫码输入作品编号" value={serial} onChange={(e) => setSerial(e.target.value)} /><button type="button" aria-label="模拟扫码" onClick={() => { setSerial(`${brand}17910001`); toast.success("已模拟识别作品编号"); }}><ScanLine /></button></div>
-            <button onClick={() => toast.info("作品编号通常位于腕表底盖或保修凭证上")}>如何找到我的作品编号？</button>
-          </div>
-          <DialogFooter><Button disabled={!serial.trim()} onClick={() => { setProduct(`${cfg.reference} · ${cfg.product}`); setProductOpen(false); }}>下一步</Button></DialogFooter>
-        </DialogContent>
-      </Dialog>
-      <Dialog open={termsOpen} onOpenChange={setTermsOpen}>
-        <DialogContent className="fm-terms-dialog">
-          <DialogHeader><DialogTitle>售后服务条款</DialogTitle><DialogDescription>本内容用于可交互原型展示，正式上线前应替换为品牌法务确认的完整版本。</DialogDescription></DialogHeader>
-          <div className="fm-terms-copy"><p>您提交的作品信息、联系方式和地址仅用于本次售后预约、物流联系与服务进度通知。</p><p>实际检测结果、服务范围、报价和预计周期，以专属顾问及服务中心后续确认为准。</p><p>贵重作品寄送前请妥善包装并保留物流凭证；如需变更预约，请在门店开始处理前联系顾问。</p></div>
-          <DialogFooter><Button onClick={() => { setConsent(true); setTermsOpen(false); }}>同意并返回</Button></DialogFooter>
-        </DialogContent>
-      </Dialog>
-      <Dialog open={successOpen} onOpenChange={setSuccessOpen}>
-        <DialogContent className="fm-success-dialog">
-          <div className="fm-success-icon"><ShieldCheck /></div>
-          <DialogHeader><DialogTitle>售后申请提交成功</DialogTitle><DialogDescription>申请成功，待专属顾问与您联系。您可在“我的服务记录”中查看进度。</DialogDescription></DialogHeader>
-          <DialogFooter><Button variant="outline" onClick={() => { setSuccessOpen(false); go("record"); }}>查看详情</Button><Button onClick={() => { setSuccessOpen(false); go("account"); toast.success("申请已保存"); }}>返回我的</Button></DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </section>
-  );
-}
-
-function StatusCard({ brand, onDetail }: { brand: FigmaBrand; onDetail: () => void }) {
-  const cfg = brandConfig[brand];
-  return (
-    <article className="fm-status-card">
-      <div className="fm-status-top"><strong>{stageLabels[0]}</strong><button onClick={onDetail}>查看详情 <ChevronRight /></button></div>
-      <span className="fm-status-chip">进行中</span>
-      <hr />
-      <p>梁桐 先生&nbsp; 18717822727</p>
-      <p><Watch /> {cfg.reference}</p>
-      <p><Wrench /> 腕表抛光/翻新</p>
-    </article>
-  );
-}
-
-function AccountPage({ brand, go, hasRecord }: { brand: FigmaBrand; go: (p: Page) => void; hasRecord: boolean }) {
-  const cfg = brandConfig[brand];
-  return (
-    <section className="fm-account">
-      <div className="fm-account-hero" style={{ backgroundImage: `url(${cfg.account})` }}>
-        <StatusBar light />
-        <MiniHeader brand={brand} light />
-        <div className="fm-account-greeting"><h1>你好，梁 先生</h1><button>编辑资料</button></div>
-      </div>
-      <div className="fm-account-body">
-        <div className="fm-section-head"><h2>售后预约记录</h2><button onClick={() => go("records")}>查看全部</button></div>
-        {hasRecord ? <StatusCard brand={brand} onDetail={() => go("record")} /> : <div className="fm-empty-record" style={{ backgroundImage: `url(${cfg.watchmaker})` }}><span>暂无预约</span><button onClick={() => go("apply")}>去预约</button></div>}
-        <button className="fm-account-row" onClick={() => toast.success(`已关注${cfg.chinese}`)}><span className="fm-round-logo">{brand}</span><span><strong>{cfg.chinese}</strong><small>探索更多非凡时刻</small></span><b>立即关注</b></button>
-        <button className="fm-account-row" onClick={() => toast.info("已为您打开客服咨询演示") }><span className="fm-round-logo"><Headphones /></span><span><strong>客服咨询</strong><small>随时欢迎您的垂询</small></span><b>立即咨询</b></button>
-        <button className="fm-account-row" onClick={() => go("works")}><span className="fm-round-logo"><Watch /></span><span><strong>我的作品</strong><small>查看与管理已认证腕表</small></span><b>查看作品</b></button>
-      </div>
-      <BottomNav brand={brand} page="account" go={go} />
-    </section>
-  );
-}
-
-function RecordsPage({ brand, go, hasRecord }: { brand: FigmaBrand; go: (p: Page) => void; hasRecord: boolean }) {
-  const [tab, setTab] = useState<"active" | "completed" | "cancelled">("active");
-  const hasActiveRecord = hasRecord && tab === "active";
-  return (
-    <section className="fm-page">
-      <StatusBar />
-      <MiniHeader brand={brand} back={() => go("account")} title="售后预约记录" />
-      <div className="fm-record-tabs"><button className={tab === "active" ? "is-active" : ""} onClick={() => setTab("active")}>进行中</button><button className={tab === "completed" ? "is-active" : ""} onClick={() => setTab("completed")}>已完成</button><button className={tab === "cancelled" ? "is-active" : ""} onClick={() => setTab("cancelled")}>已取消</button></div>
-      <div className="fm-record-list">{hasActiveRecord ? <StatusCard brand={brand} onDetail={() => go("record")} /> : <div className="fm-record-empty"><PackageCheck /><h2>{tab === "completed" ? "暂无已完成服务" : tab === "cancelled" ? "暂无已取消预约" : "暂无售后预约"}</h2><p>{tab === "active" ? "提交售后申请后，服务进度会显示在这里。" : "对应状态的服务记录会显示在这里。"}</p>{tab === "active" && <Button onClick={() => go("apply")}>去预约</Button>}</div>}</div>
-    </section>
-  );
-}
-
-function RecordDetail({ brand, go, onCancel }: { brand: FigmaBrand; go: (p: Page) => void; onCancel: () => void }) {
-  const cfg = brandConfig[brand];
-  const [confirmCancel, setConfirmCancel] = useState(false);
-  return (
-    <section className="fm-record-detail">
-      <div className="fm-detail-hero" style={{ backgroundImage: `url(${cfg.detail})` }}>
-        <StatusBar light /><MiniHeader brand={brand} back={() => go("records")} light />
-        <h1>您已预约售后服务</h1>
-      </div>
-      <div className="fm-detail-card">
-        <StatusCard brand={brand} onDetail={() => undefined} />
-        <div className="fm-address-block"><p><MapPin /> 上海市长宁区愚园路1108号创邑园区2号2楼</p><small>*专属服务套件的寄送地址</small><p><MapPin /> 上海市长宁区愚园路1108号创邑园区2号2楼</p><small>*作品的寄回地址</small></div>
-        <div className="fm-service-updates"><h2>售后服务更新</h2><p><strong>服务报价</strong><span>待门店检测后更新</span></p><p><strong>维修图片</strong><span>待门店上传</span></p><p><strong>门店备注</strong><span>专属顾问联系后更新</span></p><p><strong>物流信息</strong><span>专属服务套件尚未寄出</span></p></div>
-      </div>
-      <div className="fm-detail-actions"><Button variant="outline" onClick={() => setConfirmCancel(true)}>取消预约</Button><Button onClick={() => go("apply")}>修改预约</Button></div>
-      <Dialog open={confirmCancel} onOpenChange={setConfirmCancel}><DialogContent><DialogHeader><DialogTitle>取消售后预约？</DialogTitle><DialogDescription>取消后该记录会移动到“已取消”。如需服务，可重新提交申请。</DialogDescription></DialogHeader><DialogFooter><Button variant="outline" onClick={() => setConfirmCancel(false)}>保留预约</Button><Button onClick={() => { onCancel(); setConfirmCancel(false); go("records"); toast.success("预约已取消"); }}>确认取消</Button></DialogFooter></DialogContent></Dialog>
-    </section>
-  );
-}
-
-function WorksPage({ brand, go }: { brand: FigmaBrand; go: (p: Page) => void }) {
-  const cfg = brandConfig[brand];
-  return (
-    <section className="fm-page"><StatusBar /><MiniHeader brand={brand} back={() => go("account")} title="我的作品" /><div className="fm-works"><h1>我的作品</h1><article><div className="fm-watch-art" style={{ backgroundImage: `url(${cfg.watchmaker})` }} /><div><p>{cfg.chinese} · 已认证</p><h2>{cfg.product}</h2><span>{cfg.reference}</span><small>作品编号 GP17910001</small></div></article><Button variant="outline" onClick={() => go("apply")}><ImagePlus /> 添加作品</Button></div></section>
-  );
-}
-
-function FaqPage({ brand, go }: { brand: FigmaBrand; go: (p: Page) => void }) {
-  const questions = [
-    ["我的腕表多久保养一次？", "建议每3至5年进行一次专业检修与养护，实际周期需结合佩戴情况和检测结果。"],
-    ["腕表送修有哪些注意事项？", "请先提交售后申请。顾问审核通过后，门店会寄出专属服务套件并提供物流单号。"],
-    ["全面保养包含哪些内容？", "包括拆卸、清洁、组装、润滑、功能检查、精度校正及必要的外观翻新。"],
-    ["如何查看服务进度？", "进入“我的”页面，在售后预约记录中查看当前状态、物流、报价和服务图片。"],
-  ];
-  return <section className="fm-page fm-article"><StatusBar /><MiniHeader brand={brand} back={() => go("service")} title="常见问题" /><div className="fm-article-hero" style={{ backgroundImage: `url(${brandConfig[brand].detail})` }}><div><p>{brandConfig[brand].chinese}时计</p><h1>常见问题</h1></div></div><div className="fm-article-body"><p>您是否正在考虑购买或保养一枚{brandConfig[brand].chinese}时计？<br />这里有一些常见问题的答案。</p><Accordion type="single" collapsible>{questions.map(([q,a],i)=><AccordionItem value={`q${i}`} key={q}><AccordionTrigger>{q}</AccordionTrigger><AccordionContent>{a}</AccordionContent></AccordionItem>)}</Accordion></div></section>;
-}
-
-const careCopy = ["拆卸表链", "拆卸表壳", "完全解拆表壳", "解拆机芯", "在不同清洁池中清洗各种备件和零部件", "零备件管控", "更换零件", "润滑", "抛光零件", "重新组装机芯", "重新组装表壳", "防水性能测试", "最终调节", "最终外观检查"];
-function CarePage({ brand, go }: { brand: FigmaBrand; go: (p: Page) => void }) {
-  const images = Array.from({ length: 14 }, (_, i) => `./figma/imgRectangle346265${46 + i}.png`);
-  return <section className="fm-page fm-article"><StatusBar /><MiniHeader brand={brand} back={() => go("aftersales")} title="了解腕表养护" /><div className="fm-article-hero" style={{ backgroundImage: `url(${brandConfig[brand].watchmaker})` }}><div><p>{brandConfig[brand].chinese}时计</p><h1>了解腕表养护</h1></div></div><div className="fm-article-body"><p>我们的制表大师将全力为您的腕表提供优质服务，延长其使用寿命。建议定期进行全面检修保养。</p>{careCopy.map((title,i)=><article className="fm-care-step" key={title}><img src={brand === "UN" ? images[i] : brandConfig.GP.watchmaker} alt={title}/><h2>{i+1}. {title}</h2><p>制表师将按照品牌标准完成此步骤，并在每个阶段进行严格质量检查。</p></article>)}</div></section>;
-}
-
-function HomePage({ brand, go }: { brand: FigmaBrand; go: (p: Page) => void }) {
-  const cfg=brandConfig[brand];
-  return <section className="fm-home" style={{backgroundImage:`url(${cfg.home})`}}><StatusBar light/><MiniHeader brand={brand} light/><div className="fm-service-shade"/><div className="fm-home-copy"><p>{cfg.product}</p><h1>{brand === "GP" ? "历久弥新的设计传奇" : "探索非凡时刻"}</h1><Button variant="outline">即刻探索</Button></div><BottomNav brand={brand} page="home" go={go}/></section>;
-}
-
-export function FigmaMobileApp({ brand }: { brand: FigmaBrand }) {
-  const { page, go } = usePage();
-  const [hasRecord, setHasRecord] = useState(true);
-  useEffect(() => { document.title = `${brandConfig[brand].chinese} · 售后服务原型`; }, [brand]);
-  const content = useMemo(() => {
-    if (page === "home") return <HomePage brand={brand} go={go} />;
-    if (page === "service") return <ServiceLanding brand={brand} go={go} />;
-    if (page === "aftersales") return <Aftersales brand={brand} go={go} />;
-    if (page === "apply") return <ApplyPage brand={brand} go={go} onSubmit={() => setHasRecord(true)} />;
-    if (page === "account") return <AccountPage brand={brand} go={go} hasRecord={hasRecord} />;
-    if (page === "records") return <RecordsPage brand={brand} go={go} hasRecord={hasRecord} />;
-    if (page === "record") return <RecordDetail brand={brand} go={go} onCancel={() => setHasRecord(false)} />;
-    if (page === "works") return <WorksPage brand={brand} go={go} />;
-    if (page === "faq") return <FaqPage brand={brand} go={go} />;
-    return <CarePage brand={brand} go={go} />;
-  }, [page, brand, hasRecord]);
-  return <main className={`figma-prototype fm-brand-${brand.toLowerCase()}`} style={{ "--fm-accent": brandConfig[brand].accent } as React.CSSProperties}><div className="fm-device">{content}</div></main>;
+function Works({brand,go,tickets}:{brand:FigmaBrand;go:Go;tickets:Ticket[]}){const [open,setOpen]=useState(false),[extra,setExtra]=useState<string[]>(()=>{try{return JSON.parse(localStorage.getItem("sowind.works."+brand)||"[]")}catch{return []}});const serials=[...new Set([...tickets.map(t=>t.serial),...extra])];return <section className="works-page"><Chrome brand={brand} go={go} back={()=>go("account")} title="我的作品"/><div className="works-body">{serials.length?serials.map(s=><article key={s}><Watch/><div><h2>{brands[brand].product}</h2><p>{brands[brand].reference}</p><small>作品编号 {s}</small></div></article>):<p>暂无已认证作品</p>}<Button variant="outline" onClick={()=>setOpen(true)}>添加作品</Button></div><ProductPicker brand={brand} open={open} onOpenChange={setOpen} onSelect={s=>{const next=[...new Set([...extra,s])];try{localStorage.setItem("sowind.works."+brand,JSON.stringify(next));setExtra(next)}catch{toast.error("浏览器存储空间不足，请稍后重试")}}}/></section>}
+function Article({brand,go,care=false}:{brand:FigmaBrand;go:Go;care?:boolean}) {return <FigmaArticles brand={brand} kind={care?"care":"faq"} header={<Chrome brand={brand} go={go} back={()=>go(care?"aftersales":"service")} light hideLogo/>}/>}
+export function FigmaMobileApp({brand}:{brand:FigmaBrand}) {
+ const {page,id,go}=useNavigation(),[tickets,setTickets]=useState(()=>service().getTickets({brand,customerId:"demo-"+brand}));
+ useEffect(()=>service().subscribe(()=>setTickets(service().getTickets({brand,customerId:"demo-"+brand}))),[brand]);
+ useEffect(()=>{document.title=brands[brand].chinese+" · 售后服务"},[brand]);
+ const ticket=id?tickets.find(t=>t.id===id):tickets[0];
+ let content:ReactNode;
+ if(page==="home")content=<Landing brand={brand} go={go} home/>;
+ else if(page==="service")content=<Landing brand={brand} go={go}/>;
+ else if(page==="aftersales")content=<Aftersales brand={brand} go={go}/>;
+ else if(page==="apply")content=<Apply key={id||"new"} brand={brand} go={go} ticket={id?ticket:undefined}/>;
+ else if(page==="account")content=<Account brand={brand} go={go} tickets={tickets}/>;
+ else if(page==="records")content=<Records brand={brand} go={go} tickets={tickets}/>;
+ else if(page==="record")content=<Detail key={ticket?.id} brand={brand} go={go} ticket={ticket}/>;
+ else if(page==="works")content=<Works brand={brand} go={go} tickets={tickets}/>;
+ else content=<Article brand={brand} go={go} care={page==="care"}/>;
+ return <main className={"figma-prototype brand-"+brand.toLowerCase()} style={{"--brand":brands[brand].accent,"--paper":brands[brand].paper} as CSSProperties}><div className="device">{content}</div></main>
 }

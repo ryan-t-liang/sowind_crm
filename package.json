@@ -4,11 +4,13 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "prebuild": "node scripts/sync-service-model.mjs",
     "install:frontend": "npm ci --prefix frontend",
     "build": "npm run build --prefix frontend",
     "assemble": "node scripts/assemble-site.mjs",
-    "preview": "python3 -m http.server 4181 --bind 127.0.0.1 --directory dist-site",
+    "preview": "node scripts/preview.mjs",
     "qa": "node qa/browser-qa.cjs",
-    "verify": "npm run build && npm run assemble"
+    "test:model": "node qa/service-model.test.mjs",
+    "verify": "npm run test:model && npm run build && npm run assemble"
   }
 }

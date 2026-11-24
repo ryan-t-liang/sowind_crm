@@ -1861,6 +1861,17 @@
     .service-status.active { color:#46677f; background:#edf2f6; }
     .service-status.complete { color:#4f7057; background:#edf4ef; }
     .service-status.rejected { color:#9d4b45; background:#f8ecea; }
+    .service-status.cancelled { color:#6d6b64; background:#efeeeb; }
+    .service-error { color:#9d302b; background:#fff0ee; border:1px solid #e6c4c0; border-radius:5px; padding:10px 12px; margin:12px 0; font-size:12px; }
+    .service-image-grid { display:flex; flex-wrap:wrap; gap:10px; margin-top:10px; }
+    .service-image-grid button { border:1px solid var(--line); border-radius:6px; padding:4px; background:#fff; width:108px; cursor:pointer; }
+    .service-image-grid img { width:98px; height:78px; object-fit:cover; border-radius:3px; }
+    .service-image-grid small { display:block; font-size:10px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .service-image-viewer { max-width:min(920px,92vw); }
+    .service-image-viewer img { display:block; max-width:100%; max-height:72vh; object-fit:contain; margin:auto; }
+    #serviceWorkingStore { width:205px; }
+    #serviceEditDialog { width:min(760px,94vw); max-height:90vh; }
+    #serviceEditDialog .dialog-body { max-height:66vh; overflow:auto; }
     .service-row-actions { display:flex; gap:6px; justify-content:flex-end; }
     .service-detail-shell { padding:30px 34px 44px; }
     .service-detail-head { display:flex; gap:16px; align-items:center; margin-bottom:24px; }
@@ -2091,6 +2102,7 @@
                 <button class="is-active" data-service-role="ADMIN">管理员视图</button>
                 <button data-service-role="STORE">门店视图</button>
               </div>
+              <select class="control" id="serviceWorkingStore" aria-label="当前门店" hidden></select>
               <button class="btn" id="serviceExportBtn"><svg><use href="#i-download"/></svg>导出当前结果</button>
             </div>
           </div>
@@ -2137,7 +2149,7 @@
               <section class="service-card"><h2>物流与报价</h2><div class="service-logistics" id="serviceLogistics"></div></section>
             </div>
             <aside>
-              <section class="service-card service-action-panel"><h2>当前处理</h2><p id="serviceActionDescription"></p><div id="serviceActionControls"></div></section>
+              <section class="service-card service-action-panel"><h2>当前处理</h2><p id="serviceActionDescription"></p><div id="serviceActionError" class="service-error" role="alert" hidden></div><div id="serviceActionControls"></div></section>
               <section class="service-card"><h2>工单记录</h2><ol class="service-history" id="serviceHistory"></ol></section>
             </aside>
           </div>
@@ -2322,23 +2334,36 @@
       <div class="dialog-header"><h2>编辑售后工单</h2><span class="spacer"></span><button class="dialog-close" type="button" id="closeServiceEdit" aria-label="关闭"><svg><use href="#i-x"/></svg></button></div>
       <div class="dialog-body">
         <div class="edit-grid">
-          <label><span class="field-label">客户姓名</span><input class="control" id="editServiceCustomer" required></label>
+          <label><span class="field-label">称谓</span><select class="control" id="editServiceSalutation"><option>先生</option><option>女士</option></select></label>
+          <label><span class="field-label">姓氏</span><input class="control" id="editServiceLastName" required></label>
+          <label><span class="field-label">名字</span><input class="control" id="editServiceFirstName"></label>
           <label><span class="field-label">手机号</span><input class="control" id="editServicePhone" required></label>
           <label><span class="field-label">作品型号</span><input class="control" id="editServiceReference" required></label>
           <label><span class="field-label">作品编号</span><input class="control" id="editServiceSerial" required></label>
           <label><span class="field-label">售后原因</span><select class="control" id="editServiceReason"></select></label>
           <label><span class="field-label">服务报价</span><input class="control" id="editServiceQuote" placeholder="例如：3200"></label>
           <label><span class="field-label">负责门店</span><input class="control" id="editServiceStore"></label>
+          <label><span class="field-label">门店联系电话</span><input class="control" id="editServiceStorePhone" type="tel"></label>
           <label><span class="field-label">专属顾问</span><input class="control" id="editServiceAdvisor"></label>
+          <label><span class="field-label">专属套件物流单号</span><input class="control" id="editServiceKitTracking"></label>
+          <label><span class="field-label">客户寄出作品物流单号</span><input class="control" id="editServiceInboundTracking"></label>
+          <label><span class="field-label">作品寄回物流单号</span><input class="control" id="editServiceOutboundTracking"></label>
           <label class="wide"><span class="field-label">专属套件寄送地址</span><input class="control" id="editServiceKitAddress"></label>
           <label class="wide"><span class="field-label">作品寄回地址</span><input class="control" id="editServiceReturnAddress"></label>
           <label class="wide"><span class="field-label">客户说明</span><textarea class="control" id="editServiceDescription" rows="3"></textarea></label>
           <label class="wide"><span class="field-label">门店服务说明</span><textarea class="control" id="editServiceNote" rows="3"></textarea></label>
-          <label class="wide"><span class="field-label">维修图片</span><input class="control" id="editServiceImages" type="file" accept="image/*" multiple><small class="scope-note" id="editServiceImageHint">可选择多张图片；原型仅保存文件名。</small></label>
+          <label class="wide"><span class="field-label">维修图片</span><input class="control" id="editServiceImages" type="file" accept="image/jpeg,image/png,image/webp" multiple><small class="scope-note" id="editServiceImageHint">最多4张，每张不超过600KB，合计不超过1.5MB，支持JPG、PNG和WebP。</small></label>
+          <div class="wide service-image-grid" id="editServiceImagePreview"></div>
+          <div class="wide service-error" id="serviceEditError" role="alert" hidden></div>
         </div>
       </div>
       <div class="dialog-footer"><button class="btn" type="button" id="cancelServiceEdit">取消</button><button class="btn btn-primary" type="submit">保存更改</button></div>
     </form>
+  </dialog>
+
+  <dialog id="serviceImageDialog" class="service-image-viewer">
+    <div class="dialog-header"><h2 id="serviceImageTitle">维修图片</h2><span class="spacer"></span><button class="dialog-close" type="button" id="closeServiceImage" aria-label="关闭图片"><svg><use href="#i-x"/></svg></button></div>
+    <div class="dialog-body"><img id="serviceImageFull" alt="维修图片"></div>
   </dialog>
 
   <div class="toast" id="toast"><span class="toast-icon"><svg><use href="#i-check"/></svg></span><span id="toastText">更改已保存</span></div>
@@ -4997,100 +5022,7 @@
       });
     }());
   </script>
-  <script>
-    (function () {
-      "use strict";
-      var STORAGE_KEY = "sowind.crm.v1.13.3.aftersales";
-      var statusCatalog = {
-        submitted: { label: "申请成功，待专属顾问与您联系", tone: "pending", order: 0 },
-        rejected: { label: "已拒绝", tone: "rejected", order: -1 },
-        assigned: { label: "门店跟进中", tone: "active", order: 1 },
-        kit_sent: { label: "专属配件已寄送", tone: "active", order: 2 },
-        customer_sent: { label: "作品已发回", tone: "active", order: 3 },
-        received: { label: "作品已收到，待售后", tone: "active", order: 4 },
-        payment: { label: "作品已完成售后，待付款", tone: "payment", order: 5 },
-        return_sent: { label: "作品已寄回，待签收", tone: "active", order: 6 },
-        completed: { label: "服务完成", tone: "complete", order: 7 }
-      };
-      var flowStages = ["submitted","assigned","kit_sent","customer_sent","received","payment","return_sent","completed"];
-      var serviceReasons = ["更换电池","全面保养服务","部件遗失/损坏","功能失效","腕表抛光/翻新","走时快","走时慢","走停","腕表防水","万年历调整","摔落/震撞","消磁","其他问题"];
-      var seed = [
-        ticket("AS-GP-2026-1120","GP","梁桐 先生","18717822727","81006-11-2010-1cm","腕表抛光/翻新","submitted","未分配","未分配","2026-11-20 10:00"),
-        ticket("AS-UN-2026-1119","UN","陈嘉宁 先生","18603087126","2405-500-2A/3A","全面保养服务","kit_sent","上海恒隆广场精品店","Anne Yang","2026-11-19 16:25"),
-        ticket("AS-GP-2026-1118","GP","李蔚然 女士","13918763041","81010-11-431-11A","更换电池","payment","北京国贸商城精品店","Ryan Liang","2026-11-18 14:40"),
-        ticket("AS-UN-2026-1117","UN","Camille Bernard 女士","61238890","2303-270.1/02","功能失效","completed","上海恒隆广场精品店","Anne Yang","2026-11-17 12:16"),
-        ticket("AS-GP-2026-1116","GP","王昊 先生","13601085619","99276-52-000-BA6E","走时快","rejected","未分配","Ryan Liang","2026-11-16 09:30"),
-        ticket("AS-UN-2026-1115","UN","王婧怡 女士","13757189034","1183-310/40","腕表防水","assigned","深圳万象城精品店","陈晓晴","2026-11-15 18:12"),
-        ticket("AS-GP-2026-1114","GP","Alexandra Moreau 女士","13501896742","81005-11-3407-1CM","部件遗失/损坏","customer_sent","上海恒隆广场精品店","Anne Yang","2026-11-14 15:05"),
-        ticket("AS-UN-2026-1113","UN","张一二 先生","18872720202","1723-400/03","消磁","received","北京国贸商城精品店","Ryan Liang","2026-11-13 11:21"),
-        ticket("AS-GP-2026-1112","GP","Sofia Rossi 女士","13816812268","80488D11A701-CK7A","万年历调整","return_sent","深圳万象城精品店","陈晓晴","2026-11-12 17:48")
-      ];
-      function ticket(id,brand,customer,phone,reference,reason,status,store,advisor,created){
-        var item={id:id,brand:brand,customer:customer,phone:phone,reference:reference,serial:brand+"17910001",reason:reason,status:status,store:store,advisor:advisor,created:created,updated:created,description:"腕表买回来几年了，希望安排专业检测与养护。",kitAddress:"上海市长宁区愚园路1108号创邑园区2号2楼",returnAddress:"上海市长宁区愚园路1108号创邑园区2号2楼",kitTracking:"",inboundTracking:"",outboundTracking:"",quote:statusCatalog&&["payment","return_sent","completed"].indexOf(status)>=0?"¥3,200":"—",serviceNote:["payment","return_sent","completed"].indexOf(status)>=0?"已完成机芯清洁、润滑、走时检测与外观翻新。":"—",serviceImages:statusCatalog&&statusCatalog[status].order>=5?["维修检测图-01.jpg","维修完成图-02.jpg"]:[],history:[{title:"客户提交售后申请",time:created,note:"系统创建工单并进入顾问待办"}]};
-        if(status==="rejected") item.history.push({title:"管理员拒绝申请",time:created,note:"作品编号需进一步核实"});
-        if(statusCatalog[status].order>=1) item.history.push({title:"管理员审核通过",time:created,note:"指派"+store+" · "+advisor});
-        if(statusCatalog[status].order>=2){item.kitTracking="SF-KIT-"+id.slice(-4);item.history.push({title:"专属服务套件已寄送",time:created,note:item.kitTracking});}
-        if(statusCatalog[status].order>=3){item.inboundTracking="SF-IN-"+id.slice(-4);item.history.push({title:"客户已寄出作品",time:created,note:item.inboundTracking});}
-        if(statusCatalog[status].order>=4)item.history.push({title:"门店确认收件",time:created,note:"作品已收到，待售后"});
-        if(statusCatalog[status].order>=5)item.history.push({title:"门店完成售后",time:created,note:"已上传服务图片与报价 ¥3,200"});
-        if(statusCatalog[status].order>=6){item.outboundTracking="SF-OUT-"+id.slice(-4);item.history.push({title:"确认收款并寄回作品",time:created,note:item.outboundTracking});}
-        if(statusCatalog[status].order>=7)item.history.push({title:"客户确认签收",time:created,note:"服务完成"});
-        return item;
-      }
-      function load(){try{var value=JSON.parse(localStorage.getItem(STORAGE_KEY)),items=Array.isArray(value)&&value.length?value:seed;return items.map(function(item){if(!Array.isArray(item.serviceImages))item.serviceImages=[];return item;});}catch(error){return seed;}}
-      var tickets=load(),selectedId=tickets[0].id,role="ADMIN";
-      function save(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(tickets));}catch(error){}}
-      function esc(value){return String(value==null?"":value).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
-      function icon(name){return '<svg><use href="#i-'+name+'"></use></svg>';}
-      function brandLabel(code){return code==="GP"?"GP 芝柏表":"UN 雅典表";}
-      function now(){return new Date().toLocaleString("sv-SE",{timeZone:"Asia/Shanghai"}).slice(0,16);}
-      function selected(){return tickets.find(function(item){return item.id===selectedId;})||tickets[0];}
-      function activeViewsOff(){document.querySelectorAll(".view").forEach(function(view){view.classList.remove("is-active");});}
-      function activateNav(){document.querySelectorAll(".nav-item").forEach(function(item){item.classList.remove("is-active");});var nav=document.querySelector('[data-nav-key="services"]');if(nav)nav.classList.add("is-active");}
-      function showServiceList(){activeViewsOff();document.getElementById("serviceView").classList.add("is-active");document.getElementById("breadcrumbText").textContent="售后服务";activateNav();renderList();window.scrollTo(0,0);}
-      function showServiceDetail(id){selectedId=id;activeViewsOff();document.getElementById("serviceDetailView").classList.add("is-active");document.getElementById("breadcrumbText").textContent="售后服务 / 工单详情";activateNav();renderDetail();window.scrollTo(0,0);}
-      function filtered(){var keyword=document.getElementById("serviceKeyword").value.trim().toLowerCase(),brand=document.getElementById("serviceBrand").value,status=document.getElementById("serviceStatus").value,store=document.getElementById("serviceStore").value,dateFrom=document.getElementById("serviceDateFrom").value,dateTo=document.getElementById("serviceDateTo").value;return tickets.filter(function(item){var roleMatch=role==="ADMIN"||item.store!=="未分配",createdDate=item.created.slice(0,10);var hay=[item.id,item.customer,item.phone,item.reference,item.serial].join(" ").toLowerCase();return roleMatch&&(brand==="ALL"||item.brand===brand)&&(status==="ALL"||item.status===status)&&(store==="ALL"||item.store===store)&&(!dateFrom||createdDate>=dateFrom)&&(!dateTo||createdDate<=dateTo)&&(!keyword||hay.indexOf(keyword)>=0);});}
-      function renderMetrics(){document.getElementById("serviceMetricTotal").textContent=tickets.length;document.getElementById("serviceMetricPending").textContent=tickets.filter(function(item){return item.status==="submitted"||item.status==="payment";}).length;document.getElementById("serviceMetricActive").textContent=tickets.filter(function(item){return ["assigned","kit_sent","customer_sent","received","return_sent"].indexOf(item.status)>=0;}).length;document.getElementById("serviceMetricComplete").textContent=tickets.filter(function(item){return item.status==="completed";}).length;document.getElementById("serviceNavCount").textContent=tickets.length;}
-      function renderList(){var result=filtered();document.getElementById("serviceRows").innerHTML=result.map(function(item){var status=statusCatalog[item.status];return '<tr data-service-id="'+esc(item.id)+'"><td><div class="service-ticket"><strong>'+esc(item.id)+'</strong><span>'+esc(item.created)+'</span></div></td><td><span class="badge brand '+item.brand.toLowerCase()+'">'+esc(item.brand)+'</span></td><td><div class="service-customer"><strong>'+esc(item.customer)+'</strong><span>'+esc(item.phone)+'</span></div></td><td><div class="service-ticket"><strong>'+esc(item.reference)+'</strong><span>'+esc(item.serial)+'</span></div></td><td>'+esc(item.reason)+'</td><td><span class="service-status '+status.tone+'">'+esc(status.label)+'</span></td><td>'+esc(item.store)+'</td><td>'+esc(item.updated)+'</td><td><div class="service-row-actions"><button class="table-action" data-service-open>详情</button></div></td></tr>';}).join("");document.getElementById("serviceResultCount").textContent=result.length+" 条结果";document.getElementById("serviceTableSummary").textContent=result.length?"显示 1–"+result.length+"，共 "+result.length+" 条工单":"无匹配结果";document.getElementById("serviceTableWrap").hidden=!result.length;document.getElementById("serviceEmpty").hidden=Boolean(result.length);document.getElementById("serviceRoleHint").textContent=role==="ADMIN"?"显示全部品牌工单":"仅显示已指派门店的工单";renderMetrics();}
-      function field(label,value,wide){return '<div class="service-field'+(wide?' wide':'')+'"><label>'+esc(label)+'</label><strong>'+esc(value||"—")+'</strong></div>';}
-      function renderWorkflow(item){var current=statusCatalog[item.status].order;document.getElementById("serviceWorkflow").innerHTML=flowStages.map(function(key,index){var status=statusCatalog[key],klass=index<current?" is-done":index===current?" is-current":"";if(item.status==="rejected")klass="";return '<div class="service-step'+klass+'"><span>'+(index+1)+'</span><small>'+esc(status.label)+'</small></div>';}).join("");}
-      function actionModel(item){
-        if(item.status==="submitted")return {description:"审核客户申请。通过后需同时指派负责门店与专属顾问；拒绝后工单结束。",html:'<select class="control" id="serviceDecision"><option value="approve">通过申请</option><option value="reject">拒绝申请</option></select><select class="control" id="serviceAssignStore"><option>上海恒隆广场精品店</option><option>北京国贸商城精品店</option><option>深圳万象城精品店</option></select><select class="control" id="serviceAssignAdvisor"><option>Anne Yang</option><option>Ryan Liang</option><option>陈晓晴</option></select><button class="btn btn-primary" data-service-action="review">确认审核结果</button>'};
-        if(item.status==="assigned")return {description:"门店寄出专属服务套件后，录入物流单号并通知客户。",html:'<input class="control" id="serviceKitTracking" placeholder="专属套件物流单号"><button class="btn btn-primary" data-service-action="kit">确认寄出套件</button>'};
-        if(item.status==="kit_sent")return {description:"客户收到套件并寄出作品后，录入客户提供的快递单号。",html:'<input class="control" id="serviceInboundTracking" placeholder="客户寄出作品物流单号"><button class="btn btn-primary" data-service-action="customer-sent">记录作品已发回</button>'};
-        if(item.status==="customer_sent")return {description:"门店收到作品并完成核验后确认收件。",html:'<button class="btn btn-primary" data-service-action="receive">确认门店已收件</button>'};
-        if(item.status==="received")return {description:"完成售后后，录入报价、服务说明并上传维修图片。原型保存图片文件名，不上传服务器。",html:'<input class="control" id="serviceQuote" value="3200" inputmode="numeric" placeholder="报价金额"><textarea class="control" id="serviceNote" rows="4" placeholder="服务说明">已完成机芯清洁、润滑、走时检测与外观翻新。</textarea><input class="control" id="serviceRepairImages" type="file" accept="image/*" multiple><button class="btn btn-primary" data-service-action="finish-repair">提交报价与服务结果</button>'};
-        if(item.status==="payment")return {description:"门店确认收到客户线下转账后，寄回作品并录入物流单号。",html:'<input class="control" id="serviceOutboundTracking" placeholder="作品寄回物流单号"><button class="btn btn-primary" data-service-action="return">确认收款并寄回</button>'};
-        if(item.status==="return_sent")return {description:"客户签收作品后，将工单标记为服务完成。",html:'<button class="btn btn-primary" data-service-action="complete">确认客户已签收</button>'};
-        if(item.status==="rejected")return {description:"该申请已拒绝，工单结束。如需继续服务，请客户重新提交申请。",html:'<button class="btn" disabled>工单已结束</button>'};
-        return {description:"客户已签收作品，售后服务流程已完成。",html:'<button class="btn" disabled>服务已完成</button>'};
-      }
-      function renderDetail(){var item=selected(),status=statusCatalog[item.status];document.getElementById("serviceDetailNo").textContent=item.id;document.getElementById("serviceDetailSubtitle").textContent=brandLabel(item.brand)+" · 创建于 "+item.created;document.getElementById("serviceDetailHeadActions").innerHTML='<button class="btn" type="button" data-service-edit><svg><use href="#i-edit"></use></svg>编辑工单</button><span class="service-status '+status.tone+'">'+esc(status.label)+'</span>';renderWorkflow(item);document.getElementById("serviceCustomerFields").innerHTML=field("客户",item.customer)+field("手机号",item.phone)+field("作品型号",item.reference)+field("作品编号",item.serial)+field("专属套件寄送地址",item.kitAddress,true)+field("作品寄回地址",item.returnAddress,true);document.getElementById("serviceInfoFields").innerHTML=field("品牌",brandLabel(item.brand))+field("售后原因",item.reason)+field("负责门店",item.store)+field("专属顾问",item.advisor)+field("客户说明",item.description,true)+field("门店服务说明",item.serviceNote,true);document.getElementById("serviceLogistics").innerHTML='<article><strong>专属服务套件</strong><span>'+(item.kitTracking?esc(item.kitTracking):"尚未寄出")+'</span></article><article><strong>客户寄出作品</strong><span>'+(item.inboundTracking?esc(item.inboundTracking):"尚未录入")+'</span></article><article><strong>服务报价</strong><span>'+esc(item.quote)+'</span></article><article><strong>维修图片</strong><span>'+(item.serviceImages.length?item.serviceImages.map(esc).join("、"):"尚未上传")+'</span></article><article><strong>作品寄回</strong><span>'+(item.outboundTracking?esc(item.outboundTracking):"尚未寄出")+'</span></article>';var action=actionModel(item);document.getElementById("serviceActionDescription").textContent=action.description;document.getElementById("serviceActionControls").innerHTML=action.html;document.getElementById("serviceHistory").innerHTML=item.history.slice().reverse().map(function(log){return '<li><strong>'+esc(log.title)+'</strong><span>'+esc(log.time)+' · '+esc(log.note)+'</span></li>';}).join("");}
-      function advance(action){var item=selected(),time=now(),note="";if(action==="review"){var decision=document.getElementById("serviceDecision").value;if(decision==="reject"){item.status="rejected";note="管理员拒绝申请";}else{item.status="assigned";item.store=document.getElementById("serviceAssignStore").value;item.advisor=document.getElementById("serviceAssignAdvisor").value;note="审核通过并指派 "+item.store+" · "+item.advisor;}}else if(action==="kit"){var kit=document.getElementById("serviceKitTracking").value.trim();if(!kit)return alert("请输入专属套件物流单号");item.kitTracking=kit;item.status="kit_sent";note="专属服务套件已寄送 · "+kit;}else if(action==="customer-sent"){var inbound=document.getElementById("serviceInboundTracking").value.trim();if(!inbound)return alert("请输入客户寄出物流单号");item.inboundTracking=inbound;item.status="customer_sent";note="记录客户已寄出作品 · "+inbound;}else if(action==="receive"){item.status="received";note="门店确认收到作品";}else if(action==="finish-repair"){var quote=document.getElementById("serviceQuote").value.trim(),images=document.getElementById("serviceRepairImages").files;if(!quote)return alert("请输入服务报价");item.quote="¥"+Number(quote).toLocaleString("zh-CN");item.serviceNote=document.getElementById("serviceNote").value.trim()||"已完成售后服务";item.serviceImages=Array.from(images).map(function(file){return file.name;});if(!item.serviceImages.length)item.serviceImages=["维修完成图-原型.jpg"];item.status="payment";note="售后完成，已上传 "+item.serviceImages.length+" 张服务图片与报价 "+item.quote;}else if(action==="return"){var outbound=document.getElementById("serviceOutboundTracking").value.trim();if(!outbound)return alert("请输入作品寄回物流单号");item.outboundTracking=outbound;item.status="return_sent";note="确认收款并寄回作品 · "+outbound;}else if(action==="complete"){item.status="completed";note="客户确认签收，服务完成";}item.updated=time;item.history.push({title:statusCatalog[item.status].label,time:time,note:note});save();renderDetail();renderMetrics();if(window.SowindCRM&&window.SowindCRM.showToast)window.SowindCRM.showToast("工单状态已更新");}
-      function resetFilters(){document.getElementById("serviceKeyword").value="";document.getElementById("serviceBrand").value="ALL";document.getElementById("serviceStatus").value="ALL";document.getElementById("serviceStore").value="ALL";document.getElementById("serviceDateFrom").value="";document.getElementById("serviceDateTo").value="";renderList();}
-      function openServiceEdit(){var item=selected();document.getElementById("editServiceCustomer").value=item.customer;document.getElementById("editServicePhone").value=item.phone;document.getElementById("editServiceReference").value=item.reference;document.getElementById("editServiceSerial").value=item.serial;document.getElementById("editServiceReason").value=item.reason;document.getElementById("editServiceQuote").value=item.quote==="—"?"":item.quote.replace(/[^0-9.]/g,"");document.getElementById("editServiceStore").value=item.store;document.getElementById("editServiceAdvisor").value=item.advisor;document.getElementById("editServiceKitAddress").value=item.kitAddress;document.getElementById("editServiceReturnAddress").value=item.returnAddress;document.getElementById("editServiceDescription").value=item.description;document.getElementById("editServiceNote").value=item.serviceNote==="—"?"":item.serviceNote;document.getElementById("editServiceImages").value="";document.getElementById("editServiceImageHint").textContent=item.serviceImages.length?"已保存："+item.serviceImages.join("、")+"；重新选择将替换现有文件名。":"可选择多张图片；原型仅保存文件名。";document.getElementById("serviceEditDialog").showModal();}
-      function closeServiceEdit(){document.getElementById("serviceEditDialog").close();}
-      function saveServiceEdit(event){event.preventDefault();var item=selected(),files=document.getElementById("editServiceImages").files,quote=document.getElementById("editServiceQuote").value.trim();item.customer=document.getElementById("editServiceCustomer").value.trim();item.phone=document.getElementById("editServicePhone").value.trim();item.reference=document.getElementById("editServiceReference").value.trim();item.serial=document.getElementById("editServiceSerial").value.trim();item.reason=document.getElementById("editServiceReason").value;item.quote=quote?"¥"+Number(quote).toLocaleString("zh-CN"):"—";item.store=document.getElementById("editServiceStore").value.trim()||"未分配";item.advisor=document.getElementById("editServiceAdvisor").value.trim()||"未分配";item.kitAddress=document.getElementById("editServiceKitAddress").value.trim();item.returnAddress=document.getElementById("editServiceReturnAddress").value.trim();item.description=document.getElementById("editServiceDescription").value.trim();item.serviceNote=document.getElementById("editServiceNote").value.trim()||"—";if(files.length)item.serviceImages=Array.from(files).map(function(file){return file.name;});item.updated=now();item.history.push({title:"管理员编辑工单",time:item.updated,note:"已更新客户、作品或售后服务资料"});save();closeServiceEdit();renderDetail();if(window.SowindCRM&&window.SowindCRM.showToast)window.SowindCRM.showToast("工单资料已保存");}
-      function exportRows(){var rows=filtered(),headers=["工单号","品牌","客户","手机号","作品型号","售后原因","状态","负责门店","专属顾问","更新时间"],data=[headers].concat(rows.map(function(item){return[item.id,brandLabel(item.brand),item.customer,item.phone,item.reference,item.reason,statusCatalog[item.status].label,item.store,item.advisor,item.updated];}));var csv="\ufeff"+data.map(function(row){return row.map(function(value){return '"'+String(value).replace(/"/g,'""')+'"';}).join(",");}).join("\r\n"),url=URL.createObjectURL(new Blob([csv],{type:"text/csv;charset=utf-8"})),link=document.createElement("a");link.href=url;link.download="sowind-aftersales-20261123.csv";link.click();setTimeout(function(){URL.revokeObjectURL(url);},0);}
-      var statusSelect=document.getElementById("serviceStatus");Object.keys(statusCatalog).forEach(function(key){var option=document.createElement("option");option.value=key;option.textContent=statusCatalog[key].label;statusSelect.appendChild(option);});
-      var reasonSelect=document.getElementById("editServiceReason");serviceReasons.forEach(function(reason){var option=document.createElement("option");option.value=reason;option.textContent=reason;reasonSelect.appendChild(option);});
-      document.addEventListener("crm:navigate",function(event){if(event.detail&&event.detail.key==="services")showServiceList();});
-      document.getElementById("primaryNavigation").addEventListener("click",function(event){var item=event.target.closest("[data-nav-key]");if(item&&item.dataset.navKey!=="services"){document.getElementById("serviceView").classList.remove("is-active");document.getElementById("serviceDetailView").classList.remove("is-active");}});
-      document.getElementById("serviceRows").addEventListener("click",function(event){var row=event.target.closest("tr[data-service-id]");if(row)showServiceDetail(row.dataset.serviceId);});
-      document.getElementById("backToServices").addEventListener("click",showServiceList);
-      document.getElementById("searchServices").addEventListener("click",renderList);
-      document.getElementById("resetServiceFilters").addEventListener("click",resetFilters);
-      document.getElementById("serviceKeyword").addEventListener("keydown",function(event){if(event.key==="Enter")renderList();});
-      document.getElementById("serviceRoleSwitch").addEventListener("click",function(event){var button=event.target.closest("[data-service-role]");if(!button)return;role=button.dataset.serviceRole;document.querySelectorAll("[data-service-role]").forEach(function(item){item.classList.toggle("is-active",item===button);});renderList();});
-      document.getElementById("serviceActionControls").addEventListener("click",function(event){var button=event.target.closest("[data-service-action]");if(button)advance(button.dataset.serviceAction);});
-      document.getElementById("serviceDetailHeadActions").addEventListener("click",function(event){if(event.target.closest("[data-service-edit]"))openServiceEdit();});
-      document.getElementById("serviceEditForm").addEventListener("submit",saveServiceEdit);
-      document.getElementById("closeServiceEdit").addEventListener("click",closeServiceEdit);
-      document.getElementById("cancelServiceEdit").addEventListener("click",closeServiceEdit);
-      document.getElementById("serviceExportBtn").addEventListener("click",exportRows);
-      renderMetrics();
-      window.SowindCRMAfterSales=Object.freeze({showList:showServiceList,showDetail:showServiceDetail,getTickets:function(){return tickets.slice();},statusCatalog:statusCatalog,serviceReasons:serviceReasons});
-    }());
-  </script>
+  <script src="./service-model.js"></script>
+  <script src="./aftersales.js"></script>
 </body>
 </html>

@@ -1,121 +1,224 @@
 const { chromium } = require('../frontend/node_modules/playwright');
-const fs = require('fs');
-const path = require('path');
+const fs = require('node:fs');
+const path = require('node:path');
+const assert = require('node:assert/strict');
 
-const base = process.env.PROTOTYPE_BASE_URL || 'http://127.0.0.1:4181';
-const out = path.resolve(__dirname, '../qa-artifacts');
-fs.mkdirSync(out, { recursive: true });
+const base = (process.env.PROTOTYPE_BASE_URL || 'http://127.0.0.1:4181').replace(/\/$/, '');
+const output = path.resolve(__dirname, '../qa-artifacts/current');
+fs.mkdirSync(output, { recursive: true });
 
 (async () => {
   const browser = await chromium.launch({
     headless: true,
-    executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+    executablePath: process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
   });
-  const failures = [];
   const results = [];
-  async function pageFor(url, viewport) {
-    const context = await browser.newContext({ viewport });
-    const page = await context.newPage();
-    page.on('console', message => {
-      if (message.type() === 'error') failures.push(`console ${url}: ${message.text()}`);
-    });
-    page.on('pageerror', error => failures.push(`pageerror ${url}: ${error.message}`));
-    const response = await page.goto(url, { waitUntil: 'networkidle' });
-    if (!response || !response.ok()) failures.push(`HTTP ${url}: ${response && response.status()}`);
-    return { context, page };
+  const failures = [];
+  const screenshot = async (page, name) => {
+    await page.screenshot({ path: path.join(output, name + '.png'), fullPage: true });
+  };
+  async function selectMobile(page, label, option) {
+    await page.getByRole('combobox', { name: label, exact: true }).click();
+    await page.getByRole('option', { name: option, exact: true }).click();
   }
-  for (const [brand, route] of [['gp', 'girard-perregaux'], ['un', 'ulysse-nardin']]) {
-    const url = `${base}/mockup/${route}/index.html#/service`;
-    const { context, page } = await pageFor(url, { width: 390, height: 844 });
-    await page.getByRole('button', { name: '售后服务' }).click();
-    await page.getByText('提交申请').waitFor();
-    await page.screenshot({ path: path.join(out, `${brand}-aftersales.png`), fullPage: true });
-    await page.getByRole('button', { name: '预约腕表养护' }).click();
-    await page.getByText('预约售后服务').waitFor();
-    await page.screenshot({ path: path.join(out, `${brand}-apply.png`), fullPage: true });
-    await page.getByRole('button', { name: '添加产品' }).click();
-    if (brand === 'gp') await page.getByPlaceholder('请手动或扫码输入作品编号').fill('GP17910001');
-    else await page.getByRole('button', { name: '模拟扫码' }).click();
-    await page.getByRole('button', { name: '下一步' }).click();
-    const reasonOptions = await page.locator('select').nth(1).locator('option').count();
-    if (reasonOptions !== 14) failures.push(`${brand} service reason options expected 14 including placeholder, got ${reasonOptions}`);
-    await page.locator('select').nth(1).selectOption({ label: '腕表抛光/翻新' });
-    await page.getByRole('button', { name: '隐私政策与服务条款' }).click();
-    await page.getByRole('button', { name: '同意并返回' }).click();
-    await page.getByRole('button', { name: '提交' }).click();
-    await page.getByRole('heading', { name: '售后申请提交成功' }).waitFor();
-    await page.getByRole('button', { name: '返回我的' }).click();
-    await page.getByText('售后预约记录').waitFor();
-    await page.screenshot({ path: path.join(out, `${brand}-account.png`), fullPage: true });
-    await page.getByRole('button', { name: '查看全部' }).click();
-    await page.getByRole('button', { name: '已完成' }).click();
-    await page.getByText('暂无已完成服务').waitFor();
-    await page.getByRole('button', { name: '进行中' }).click();
-    await page.getByText('申请成功，待专属顾问与您联系').waitFor();
-    const min = await page.evaluate(() => ({ scrollWidth: document.documentElement.scrollWidth, innerWidth: window.innerWidth }));
-    if (min.scrollWidth > min.innerWidth) failures.push(`${brand} horizontal overflow ${min.scrollWidth}/${min.innerWidth}`);
-    results.push(`${brand}: service -> aftersales -> apply -> account PASS`);
-    await context.close();
+  async function expectText(locator, expected) {
+    await locator.filter({ hasText: expected }).first().waitFor({ state: 'visible' });
   }
-  {
-    const url = `${base}/mockup/sowind_crm/index.html`;
-    const { context, page } = await pageFor(url, { width: 1440, height: 1000 });
-    await page.getByRole('button', { name: '售后服务' }).click();
-    await page.getByRole('heading', { name: '售后服务' }).waitFor();
-    if (await page.locator('#serviceRows tr').count() !== 9) failures.push('admin ticket seed count is not 9');
-    await page.locator('#serviceDateFrom').fill('2026-11-20');
-    await page.locator('#serviceDateTo').fill('2026-11-20');
-    await page.getByRole('button', { name: '查询' }).click();
-    if (await page.locator('#serviceRows tr').count() !== 1) failures.push('admin date filtering did not return one ticket');
-    await page.getByRole('button', { name: '重置' }).click();
-    await page.locator('#serviceRows tr').first().getByRole('button', { name: '详情' }).click();
-    await page.getByText('当前处理').waitFor();
-    await page.getByRole('button', { name: '编辑工单' }).click();
-    await page.locator('#editServiceNote').fill('QA 编辑：待完成检测与报价。');
-    await page.getByRole('button', { name: '保存更改' }).click();
-    await page.getByText('QA 编辑：待完成检测与报价。').waitFor();
-    await page.screenshot({ path: path.join(out, 'admin-detail-before.png'), fullPage: true });
-    await page.getByRole('button', { name: '确认审核结果' }).click();
-    await page.locator('#serviceDetailHeadActions').getByText('门店跟进中').waitFor();
-    await page.screenshot({ path: path.join(out, 'admin-detail-after.png'), fullPage: true });
-    await page.locator('#serviceKitTracking').fill('SF-KIT-QA-001');
-    await page.getByRole('button', { name: '确认寄出套件' }).click();
-    await page.locator('#serviceDetailHeadActions').getByText('专属配件已寄送').waitFor();
-    await page.locator('#serviceInboundTracking').fill('SF-IN-QA-001');
-    await page.getByRole('button', { name: '记录作品已发回' }).click();
-    await page.locator('#serviceDetailHeadActions').getByText('作品已发回').waitFor();
-    await page.getByRole('button', { name: '确认门店已收件' }).click();
-    await page.locator('#serviceDetailHeadActions').getByText('作品已收到，待售后').waitFor();
-    await page.getByRole('button', { name: '提交报价与服务结果' }).click();
-    await page.locator('#serviceDetailHeadActions').getByText('作品已完成售后，待付款').waitFor();
-    await page.locator('#serviceOutboundTracking').fill('SF-OUT-QA-001');
-    await page.getByRole('button', { name: '确认收款并寄回' }).click();
-    await page.locator('#serviceDetailHeadActions').getByText('作品已寄回，待签收').waitFor();
-    await page.getByRole('button', { name: '确认客户已签收' }).click();
-    await page.locator('#serviceDetailHeadActions').getByText('服务完成').waitFor();
-    await page.screenshot({ path: path.join(out, 'admin-detail-complete.png'), fullPage: true });
-    await page.getByRole('button', { name: '返回售后服务列表' }).click();
-    await page.getByText('售后工单', { exact: true }).waitFor();
-    results.push('admin: list -> detail -> all 8 workflow stages -> list PASS');
-    await context.close();
+  async function expectAdminStatus(admin, status) {
+    await expectText(admin.locator('#serviceDetailHeadActions'), status);
   }
-  {
-    const url = `${base}/mockup/sowind_crm/index.html`;
-    const { context, page } = await pageFor(url, { width: 1440, height: 1000 });
-    await page.getByRole('button', { name: '售后服务' }).click();
-    await page.locator('#serviceRows tr').first().getByRole('button', { name: '详情' }).click();
-    await page.locator('#serviceDecision').selectOption('reject');
-    await page.getByRole('button', { name: '确认审核结果' }).click();
-    await page.locator('#serviceDetailHeadActions').getByText('已拒绝', { exact: true }).waitFor();
-    await page.getByRole('button', { name: '工单已结束' }).waitFor();
-    await page.screenshot({ path: path.join(out, 'admin-detail-rejected.png'), fullPage: true });
-    results.push('admin: submitted -> rejected terminal branch PASS');
-    await context.close();
+
+  for (const [brand, route] of [['GP', 'girard-perregaux'], ['UN', 'ulysse-nardin']]) {
+    const context = await browser.newContext({ viewport: { width: 375, height: 812 } });
+    const mobile = await context.newPage();
+    const admin = await context.newPage();
+    await admin.setViewportSize({ width: 1440, height: 1000 });
+    const checks = [];
+    const runtimeErrors = [];
+    for (const page of [mobile, admin]) {
+      page.on('pageerror', error => runtimeErrors.push(error.message));
+      page.on('console', message => {
+        if (message.type() === 'error') runtimeErrors.push(message.text() + ' [' + (message.location().url || page.url()) + ']');
+      });
+      page.on('requestfailed', request => runtimeErrors.push(request.method() + ' ' + request.url() + ' ' + (request.failure() || {}).errorText));
+    }
+    const check = name => checks.push(name);
+    const mobileUrl = base + '/mockup/' + route + '/index.html';
+    let ticketId = '';
+    try {
+      const response = await mobile.goto(mobileUrl + '#/service', { waitUntil: 'networkidle' });
+      assert(response && response.ok(), brand + ' entry should return HTTP 200');
+      await screenshot(mobile, brand.toLowerCase() + '-01-service');
+      await mobile.getByRole('button', { name: '售后服务', exact: true }).click();
+      await mobile.getByRole('button', { name: '预约腕表养护', exact: true }).waitFor();
+      await screenshot(mobile, brand.toLowerCase() + '-02-aftersales');
+      await mobile.getByRole('button', { name: '预约腕表养护', exact: true }).click();
+      await screenshot(mobile, brand.toLowerCase() + '-03-empty-form');
+      await selectMobile(mobile, '称谓*', '女士');
+      await mobile.getByRole('textbox', { name: '姓氏*', exact: true }).fill('周');
+      await mobile.getByRole('textbox', { name: '名字*', exact: true }).fill(brand + '测试');
+      await mobile.getByRole('textbox', { name: '电话', exact: true }).fill('13800138001');
+      await mobile.getByRole('button', { name: '添加产品', exact: true }).click();
+      await mobile.getByRole('textbox', { name: '作品编号', exact: true }).fill(brand + 'QA20261124');
+      await mobile.getByRole('button', { name: '下一步', exact: true }).click();
+      await mobile.getByRole('button', { name: '确定', exact: true }).click();
+      await selectMobile(mobile, '选择售后原因*', '全面保养服务');
+      await mobile.getByRole('textbox', { name: '留言和说明', exact: true }).fill('请检测走时并安排全面保养');
+      await mobile.getByRole('textbox', { name: '专属服务套件寄送地址*', exact: true }).fill('上海市静安区南京西路100号101室');
+      await mobile.getByRole('textbox', { name: '作品寄回地址*', exact: true }).fill('上海市长宁区愚园路200号202室');
+      await mobile.getByRole('button', { name: '隐私政策与服务条款', exact: true }).click();
+      await mobile.getByRole('button', { name: '同意并返回', exact: true }).click();
+      await screenshot(mobile, brand.toLowerCase() + '-04-filled-form');
+      await mobile.getByRole('button', { name: '提交', exact: true }).click();
+      await mobile.getByRole('heading', { name: '售后申请提交成功', exact: true }).waitFor();
+      await mobile.getByRole('button', { name: '查看详情', exact: true }).click();
+      ticketId = decodeURIComponent(new URL(mobile.url()).hash.split('/')[2]);
+      assert(ticketId && ticketId.startsWith(brand + 'AS'), 'New ticket has a stable brand-specific ID');
+      await mobile.reload({ waitUntil: 'networkidle' });
+      await expectText(mobile.locator('.appointment-info'), '周' + brand + '测试 女士');
+      await expectText(mobile.locator('.appointment-info'), '13800138001');
+      await expectText(mobile.locator('.appointment-info'), '南京西路100号101室');
+      await expectText(mobile.locator('.appointment-info'), '愚园路200号202室');
+      check('UI submission preserves custom name, phone and both addresses after reload');
+      await screenshot(mobile, brand.toLowerCase() + '-05-new-detail');
+
+      await mobile.getByRole('button', { name: '修改预约', exact: true }).click();
+      assert.equal(await mobile.getByRole('textbox', { name: '名字*', exact: true }).inputValue(), brand + '测试');
+      assert.equal(await mobile.getByRole('textbox', { name: '作品寄回地址*', exact: true }).inputValue(), '上海市长宁区愚园路200号202室');
+      await mobile.getByRole('textbox', { name: '留言和说明', exact: true }).fill('更新：请先检测走时，再联系我确认服务');
+      await mobile.getByRole('button', { name: '保存修改', exact: true }).click();
+      await mobile.getByRole('heading', { name: '预约修改成功', exact: true }).waitFor();
+      await mobile.getByRole('button', { name: '查看详情', exact: true }).click();
+      assert.equal(decodeURIComponent(new URL(mobile.url()).hash.split('/')[2]), ticketId, 'Editing keeps the original ID');
+      await expectText(mobile.locator('.appointment-info'), '更新：请先检测走时');
+      check('UI editing prefills and updates the original ticket');
+
+      await admin.goto(base + '/mockup/sowind_crm/index.html', { waitUntil: 'networkidle' });
+      await admin.getByRole('button', { name: '售后服务', exact: true }).click();
+      await admin.locator('#serviceKeyword').fill(ticketId);
+      await admin.getByRole('button', { name: '查询', exact: true }).click();
+      assert.equal(await admin.locator('#serviceRows tr').count(), 1);
+      await expectText(admin.locator('#serviceRows'), brand + 'QA20261124');
+      await expectText(admin.locator('#serviceRows'), '周' + brand + '测试 女士');
+      await admin.locator('#serviceRows').getByRole('button', { name: '详情', exact: true }).click();
+      await expectText(admin.locator('#serviceInfoFields'), '更新：请先检测走时');
+      await admin.getByRole('button', { name: '确认审核结果', exact: true }).click();
+      await expectAdminStatus(admin, '门店跟进中');
+      await admin.locator('#serviceKitTracking').fill('SF-KIT-' + brand + '-20261124');
+      await admin.getByRole('button', { name: '确认寄出套件', exact: true }).click();
+      await expectAdminStatus(admin, '专属配件已寄送');
+      await mobile.getByRole('button', { name: '填写快递单号', exact: true }).waitFor();
+      check('CRM finds exact submitted ticket and updates customer page across tabs');
+      await screenshot(admin, brand.toLowerCase() + '-06-admin-kit');
+
+      await mobile.getByRole('button', { name: '工单记录', exact: true }).click();
+      await expectText(mobile.locator('.ticket-timeline'), 'SF-KIT-' + brand + '-20261124');
+      await expectText(mobile.locator('.ticket-timeline'), '上海南京西路形象店');
+      await screenshot(mobile, brand.toLowerCase() + '-07-kit-timeline');
+      await mobile.getByRole('button', { name: brand === 'UN' ? '预约记录' : '预约信息', exact: true }).click();
+      await mobile.getByRole('button', { name: '填写快递单号', exact: true }).click();
+      await mobile.getByRole('textbox', { name: '快递单号', exact: true }).fill('SF-IN-' + brand + '-20261124');
+      await screenshot(mobile, brand.toLowerCase() + '-08-tracking-sheet');
+      await mobile.getByRole('button', { name: '提交', exact: true }).click();
+      await mobile.getByRole('heading', { name: '确认快递单号', exact: true }).waitFor();
+      await mobile.getByRole('button', { name: '确定', exact: true }).click();
+      await expectAdminStatus(admin, '作品已发回');
+      await expectText(admin.locator('#serviceLogistics'), 'SF-IN-' + brand + '-20261124');
+      assert(await mobile.getByRole('button', { name: '修改预约', exact: true }).isDisabled(), 'Editing disabled after watch is shipped');
+      check('Customer tracking confirmation updates the same CRM ticket');
+
+      await admin.getByRole('button', { name: '确认门店已收件', exact: true }).click();
+      await expectAdminStatus(admin, '作品已收到，待售后');
+      await admin.locator('#serviceQuote').fill('abc');
+      await admin.getByRole('button', { name: '提交报价与服务结果', exact: true }).click();
+      await expectText(admin.locator('#serviceActionError'), '有效报价');
+      await expectAdminStatus(admin, '作品已收到，待售后');
+      await admin.locator('#serviceQuote').fill('-10');
+      await admin.getByRole('button', { name: '提交报价与服务结果', exact: true }).click();
+      await expectText(admin.locator('#serviceActionError'), '有效报价');
+      await admin.locator('#serviceQuote').fill('3200.50');
+      await admin.locator('#serviceNote').fill('已完成机芯清洁、润滑与走时检测');
+      await admin.getByRole('button', { name: '提交报价与服务结果', exact: true }).click();
+      await expectText(admin.locator('#serviceActionError'), '图片');
+      await admin.locator('#serviceRepairImages').setInputFiles(path.resolve(__dirname, '../admin/sowind-sidebar-logo.png'));
+      await admin.getByRole('button', { name: '提交报价与服务结果', exact: true }).click();
+      await expectAdminStatus(admin, '作品已完成售后，待付款');
+      await mobile.getByRole('button', { name: '工单记录', exact: true }).click();
+      await expectText(mobile.locator('.timeline-quote'), '3,200.5');
+      const repairImage = mobile.locator('.timeline-images img').first();
+      await repairImage.waitFor();
+      assert(await repairImage.evaluate(img => img.complete && img.naturalWidth > 0), 'A real repair image is rendered');
+      await mobile.locator('.timeline-images button').first().click();
+      await mobile.getByRole('heading', { name: '服务图片', exact: true }).waitFor();
+      assert(await mobile.locator('.preview-image').evaluate(img => img.complete && img.naturalWidth > 0));
+      await mobile.getByRole('button', { name: '返回', exact: true }).click();
+      check('Invalid/negative quotes and missing image are rejected; real image and quote are visible in customer history');
+      await screenshot(mobile, brand.toLowerCase() + '-09-payment-timeline');
+      await screenshot(admin, brand.toLowerCase() + '-10-admin-payment');
+
+      await admin.locator('#serviceOutboundTracking').fill('SF-OUT-' + brand + '-20261124');
+      await admin.getByRole('button', { name: '确认收款并寄回', exact: true }).click();
+      await expectText(admin.locator('#serviceActionError'), '付款');
+      await admin.locator('#servicePaymentConfirmed').check();
+      await admin.getByRole('button', { name: '确认收款并寄回', exact: true }).click();
+      await expectAdminStatus(admin, '作品已寄回，待签收');
+      await mobile.getByRole('button', { name: '我已收到作品', exact: true }).waitFor();
+      await expectText(mobile.locator('.ticket-timeline'), 'SF-OUT-' + brand + '-20261124');
+      await mobile.getByRole('button', { name: '我已收到作品', exact: true }).click();
+      await mobile.getByRole('heading', { name: '签收确认', exact: true }).waitFor();
+      await mobile.getByRole('button', { name: '确定', exact: true }).click();
+      await expectAdminStatus(admin, '服务完成');
+      await mobile.reload({ waitUntil: 'networkidle' });
+      await expectText(mobile.locator('.appointment-info'), '服务完成');
+      assert.equal(await mobile.getByRole('button', { name: '修改预约', exact: true }).count(), 0);
+      check('Offline payment confirmation, return shipping and customer receipt complete the shared ticket and persist');
+      await screenshot(mobile, brand.toLowerCase() + '-11-completed-detail');
+
+      await mobile.getByRole('button', { name: '更多', exact: true }).click();
+      await mobile.getByRole('button', { name: '查看全部', exact: true }).click();
+      await mobile.getByRole('button', { name: '已完成', exact: true }).click();
+      assert.equal(await mobile.locator('.status-card').count(), 1);
+      await expectText(mobile.locator('.status-card'), '周' + brand + '测试 女士');
+      await mobile.getByRole('button', { name: '进行中', exact: true }).click();
+      assert.equal(await mobile.locator('.status-card').count(), 1, 'Only the original seed remains active');
+      await mobile.getByRole('button', { name: '查看详情', exact: true }).click();
+      await mobile.getByRole('button', { name: '取消预约', exact: true }).click();
+      await mobile.getByRole('button', { name: '确定', exact: true }).click();
+      await expectText(mobile.locator('.appointment-info'), '已取消');
+      await mobile.reload({ waitUntil: 'networkidle' });
+      await expectText(mobile.locator('.appointment-info'), '已取消');
+      await mobile.getByRole('button', { name: '更多', exact: true }).click();
+      await mobile.getByRole('button', { name: '查看全部', exact: true }).click();
+      await mobile.getByRole('button', { name: '已取消', exact: true }).click();
+      assert.equal(await mobile.locator('.status-card').count(), 1);
+      await expectText(mobile.locator('.status-card'), '已取消');
+      await screenshot(mobile, brand.toLowerCase() + '-12-cancelled-list');
+      await admin.getByRole('button', { name: '返回售后服务列表', exact: true }).click();
+      await admin.locator('#serviceKeyword').fill(brand + 'AS12345678910');
+      await admin.getByRole('button', { name: '查询', exact: true }).click();
+      await expectText(admin.locator('#serviceRows'), '已取消');
+      check('Cancellation is retained after reload and visible in both cancelled list and CRM');
+      await admin.getByRole('button', { name: '会员', exact: true }).click();
+      assert(!(await admin.locator('#serviceView').evaluate(el => el.classList.contains('is-active'))));
+      await admin.getByRole('button', { name: '线索', exact: true }).click();
+      check('Original member and lead navigation remains available');
+
+      const overflow = await mobile.evaluate(() => document.documentElement.scrollWidth > innerWidth);
+      assert.equal(overflow, false, brand + ' responsive viewport has no horizontal overflow');
+      assert.deepEqual(runtimeErrors, [], 'No browser console or runtime errors');
+      results.push({ brand, status: 'PASS', ticketId, checks });
+    } catch (error) {
+      const detail = { brand, status: 'FAIL', ticketId, checks, error: error.stack || String(error), runtimeErrors };
+      failures.push(detail);
+      await screenshot(mobile, brand.toLowerCase() + '-failure-mobile').catch(() => {});
+      await screenshot(admin, brand.toLowerCase() + '-failure-admin').catch(() => {});
+    } finally {
+      await context.close();
+    }
   }
   await browser.close();
-  console.log(JSON.stringify({ results, failures }, null, 2));
+  const report = { base, environment: 'Chrome headless, responsive 375x812 customer and 1440x1000 admin viewports; not physical-device testing', results, failures };
+  fs.writeFileSync(path.join(output, 'results.json'), JSON.stringify(report, null, 2));
+  console.log(JSON.stringify(report, null, 2));
   if (failures.length) process.exitCode = 1;
-})().catch(error => {
-  console.error(error);
-  process.exit(1);
-});
+})().catch(error => { console.error(error); process.exitCode = 1; });

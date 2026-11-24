@@ -1,0 +1,9 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="14.2688" height="15" viewBox="0 0 14.2688 15" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Group 1739328338">
+<circle id="Ellipse 143" cx="7.1348" cy="3.5" r="3" stroke="black"/>
+<mask id="stroke0_0_124" fill="white">
+<path d="M7.13477 8C10.3692 8 13.124 10.0475 14.1761 12.917C14.5742 14.0026 13.6365 15 12.4802 15H1.78933C0.633052 15 -0.304643 14.0026 0.0934158 12.917C1.14558 10.0475 3.90038 8.00001 7.13477 8Z"/>
+</mask>
+<path id="Subtract" d="M7.13477 8C10.3692 8 13.124 10.0475 14.1761 12.917C14.5742 14.0026 13.6365 15 12.4802 15H1.78933C0.633052 15 -0.304643 14.0026 0.0934158 12.917C1.14558 10.0475 3.90038 8.00001 7.13477 8Z" stroke-width="2" stroke="black" mask="url(#stroke0_0_124)"/>
+</g>
+</svg>
