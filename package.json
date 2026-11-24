@@ -10,6 +10,7 @@
     "assemble": "node scripts/assemble-site.mjs",
     "preview": "node scripts/preview.mjs",
     "qa": "node qa/browser-qa.cjs",
+    "qa:mobile": "node qa/mobile-layout.cjs",
     "test:model": "node qa/service-model.test.mjs",
     "verify": "npm run test:model && npm run build && npm run assemble"
   }
