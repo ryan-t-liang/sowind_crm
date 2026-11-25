@@ -9,7 +9,7 @@
   var statuses = service.statusCatalog;
   var requiredFlow = ["submitted", "assigned", "kit_sent", "customer_sent", "received", "repairing", "repair_completed", "return_sent", "completed"];
   var role = "ADMIN", selectedId = null, editingVersion = null, editingId = null, renderedVersion = null;
-  var imageCache = [], pendingEditReceivedImages = null, pendingEditServiceImages = null, pendingReceivedImages = null, pendingRepairImages = null, imageReadVersion = 0, editImageReadVersion = 0, editImageReadPending = 0;
+  var imageCache = [], pendingEditReceivedImages = null, pendingEditServiceImages = null, pendingEditApplicationPhotos = {}, pendingReceivedImages = null, pendingRepairImages = null, imageReadVersion = 0, editImageReadVersion = 0, editImageReadPending = 0;
   var stores = ["上海南京西路形象店", "上海恒隆广场精品店", "北京国贸商城精品店", "深圳万象城精品店"];
   function locale() { return window.SowindI18n && window.SowindI18n.getLocale ? window.SowindI18n.getLocale() : "zh-CN"; }
   function statusLabel(status) { return service.statusLabel ? service.statusLabel(status, locale()) : (statuses[status] || {}).label || status; }
@@ -48,7 +48,7 @@
     var keyword = $("serviceKeyword").value.trim().toLowerCase(), queryField = $("serviceQueryField").value;
     return all().filter(function (item) {
       var fields = {
-        ALL: [item.id, customer(item), item.phone, item.reference, item.serial, item.store],
+        ALL: [item.id, customer(item), item.phone, item.reference, item.serial, item.warrantyCardNumber, item.store],
         TICKET: [item.id], CUSTOMER: [customer(item)], PHONE: [item.phone],
         PRODUCT: [item.reference, item.serial], STORE: [item.store]
       };
@@ -91,6 +91,7 @@
       return '<button type="button" data-service-image="' + index + '" aria-label="查看图片 ' + esc(image.name) + '"><img src="' + esc(image.dataUrl) + '" alt="' + esc(image.name) + '"><small>' + esc(image.name) + '</small></button>';
     }).join("") + '</div>';
   }
+  function photoField(label, photo) { return '<div class="service-field"><label>' + esc(label) + '</label>' + (photo ? imageGrid([photo]) : '<strong>—</strong>') + '</div>'; }
   function actions(item) {
     if (item.status === "submitted") {
       if (role !== "ADMIN") return { description: "该申请待管理员审核并分配门店。", html: "" };
@@ -137,7 +138,7 @@
     var current = flow.indexOf(item.status);
     $("serviceWorkflow").style.setProperty("--service-step-count", flow.length);
     $("serviceWorkflow").innerHTML = flow.map(function (status, index) { return '<div class="service-step' + (index < current ? ' is-done' : index === current ? ' is-current' : '') + '"><span>' + (index + 1) + '</span><small>' + esc(statusLabel(status)) + '</small></div>'; }).join("");
-    $("serviceCustomerFields").innerHTML = field("客户", customer(item)) + field("手机号", item.phone) + field("作品型号", item.reference) + field("作品编号", item.serial) + field("专属套件寄送地址", item.kitAddress, true) + field("作品寄回地址", item.returnAddress, true);
+    $("serviceCustomerFields").innerHTML = field("客户", customer(item)) + field("手机号", item.phone) + field("作品型号", item.reference) + field("作品编号", item.serial) + field("保修卡号", item.warrantyCardNumber) + field("到期日期", item.warrantyExpiry) + photoField("作品照片", item.timepiecePhoto) + photoField("保修卡正面照片", item.warrantyCardFrontPhoto) + photoField("保修卡反面照片", item.warrantyCardBackPhoto) + field("专属套件寄送地址", item.kitAddress, true) + field("作品寄回地址", item.returnAddress, true);
     $("serviceInfoFields").innerHTML = field("品牌", brandLabel(item.brand)) + field("售后原因", item.reason) + field("负责门店", item.store) + field("门店联系电话", item.storePhone) + field("专属顾问", item.advisor) + field("客户说明", item.description, true) + field("门店服务说明（客户可见）", item.serviceNote, true)
       + (item.rejectionReason ? field("拒绝原因", item.rejectionReason, true) : "") + (item.cancelReason ? field("取消原因", item.cancelReason, true) : "");
     $("serviceLogistics").innerHTML = '<article><strong>专属服务套件</strong><span>' + esc(item.kitTracking || "尚未寄出") + '</span></article><article><strong>客户寄出作品</strong><span>' + esc(item.inboundTracking || "尚未录入") + '</span></article><article><strong>作品收件图片</strong>' + (item.receivedImages && item.receivedImages.length ? imageGrid(item.receivedImages) : '<span>尚未上传</span>') + '</article><article><strong>服务报价 / 付款</strong><span>' + esc(item.quoteAmount == null ? "待门店检测后更新" : "¥" + Number(item.quoteAmount).toLocaleString("zh-CN") + (item.paymentConfirmed ? " · 已确认付款" : " · 待确认付款")) + '</span></article><article><strong>维修完成图片</strong>' + (item.serviceImages && item.serviceImages.length ? imageGrid(item.serviceImages) : '<span>尚未上传</span>') + '</article><article><strong>作品寄回</strong><span>' + esc(item.outboundTracking || "尚未寄出") + '</span></article>';
@@ -194,14 +195,18 @@
       renderDetail(); renderMetrics(); toast("工单状态已更新");
     } catch (error) { errorAt("serviceActionError", error); }
   }
-  var editFields = { salutation: "Salutation", lastName: "LastName", firstName: "FirstName", phone: "Phone", reference: "Reference", serial: "Serial", reason: "Reason", store: "Store", storePhone: "StorePhone", advisor: "Advisor", kitAddress: "KitAddress", returnAddress: "ReturnAddress", description: "Description", serviceNote: "Note", kitTracking: "KitTracking", inboundTracking: "InboundTracking", outboundTracking: "OutboundTracking" };
+  var editFields = { salutation: "Salutation", lastName: "LastName", firstName: "FirstName", phone: "Phone", reference: "Reference", serial: "Serial", warrantyCardNumber: "WarrantyCardNumber", warrantyExpiry: "WarrantyExpiry", reason: "Reason", store: "Store", storePhone: "StorePhone", advisor: "Advisor", kitAddress: "KitAddress", returnAddress: "ReturnAddress", description: "Description", serviceNote: "Note", kitTracking: "KitTracking", inboundTracking: "InboundTracking", outboundTracking: "OutboundTracking" };
   function openEdit() {
     var item = selected();
     try { requireScope(item); } catch (error) { errorAt("serviceActionError", error); return; }
-    editingId = item.id; editingVersion = item.revision || item.updated; pendingEditReceivedImages = null; pendingEditServiceImages = null; editImageReadVersion += 1; editImageReadPending = 0;
+    editingId = item.id; editingVersion = item.revision || item.updated; pendingEditReceivedImages = null; pendingEditServiceImages = null; pendingEditApplicationPhotos = {}; editImageReadVersion += 1; editImageReadPending = 0;
     Object.keys(editFields).forEach(function (key) { $("editService" + editFields[key]).value = item[key] === "—" ? "" : item[key] || ""; });
     if (!item.lastName && !item.firstName) $("editServiceLastName").value = String(item.customer || "").replace(/\s*(先生|女士)$/, "");
     $("editServiceQuote").value = item.quoteAmount == null ? "" : item.quoteAmount;
+    ["TimepiecePhoto", "WarrantyCardFrontPhoto", "WarrantyCardBackPhoto"].forEach(function (name) { $("editService" + name).value = ""; });
+    $("editServiceTimepiecePhotoPreview").innerHTML = imageGrid(item.timepiecePhoto ? [item.timepiecePhoto] : []);
+    $("editServiceWarrantyCardFrontPhotoPreview").innerHTML = imageGrid(item.warrantyCardFrontPhoto ? [item.warrantyCardFrontPhoto] : []);
+    $("editServiceWarrantyCardBackPhotoPreview").innerHTML = imageGrid(item.warrantyCardBackPhoto ? [item.warrantyCardBackPhoto] : []);
     $("editServiceReceivedImages").value = ""; $("editServiceImages").value = "";
     $("editServiceReceivedImagePreview").innerHTML = imageGrid(item.receivedImages);
     $("editServiceImagePreview").innerHTML = imageGrid(item.serviceImages);
@@ -217,20 +222,21 @@
       var patch = {};
       Object.keys(editFields).forEach(function (key) { patch[key] = $("editService" + editFields[key]).value.trim(); });
       patch.customer = (patch.lastName + patch.firstName).trim() + " " + patch.salutation;
-      ["lastName", "customer", "phone", "reference", "serial", "kitAddress", "returnAddress"].forEach(function (key) { if (!patch[key]) throw new Error("客户姓氏、联系电话、作品信息及两个地址均不能为空。"); });
+      ["lastName", "customer", "phone", "reference", "serial", "warrantyCardNumber", "warrantyExpiry", "kitAddress", "returnAddress"].forEach(function (key) { if (!patch[key]) throw new Error("客户姓氏、联系电话、作品信息、保修信息及两个地址均不能为空。"); });
       if (role !== "ADMIN") patch.store = item.store;
       patch.quoteAmount = parseQuote($("editServiceQuote").value, false);
       if (["parts_ordering", "repairing", "repair_completed", "return_sent", "completed"].includes(item.status) && patch.quoteAmount == null) throw new Error("已确认报价的工单需要保留服务报价。");
       if (pendingEditReceivedImages !== null) patch.receivedImages = pendingEditReceivedImages;
       if (pendingEditServiceImages !== null) patch.serviceImages = pendingEditServiceImages;
+      Object.keys(pendingEditApplicationPhotos).forEach(function (key) { patch[key] = pendingEditApplicationPhotos[key]; });
       service.updateTicket(item.id, patch, "admin");
       $("serviceEditDialog").close(); renderDetail(); updateStores(); toast("工单资料已保存");
     } catch (error) { errorAt("serviceEditError", error); }
   }
   function resetFilters() { $("serviceKeyword").value = ""; ["serviceQueryField", "serviceBrand", "serviceStatus"].forEach(function (id) { $(id).value = "ALL"; }); renderList(); }
   function exportRows() {
-    var rows = [["工单号", "品牌", "客户", "手机号", "作品型号", "作品编号", "售后原因", "状态", "负责门店", "门店电话", "专属顾问", "套件物流", "寄出物流", "寄回物流", "报价", "更新时间"]];
-    filtered().forEach(function (item) { rows.push([item.id, brandLabel(item.brand), customer(item), item.phone, item.reference, item.serial, item.reason, statusOf(item).label, item.store, item.storePhone, item.advisor, item.kitTracking, item.inboundTracking, item.outboundTracking, item.quoteAmount == null ? "" : item.quoteAmount, item.updated]); });
+    var rows = [["工单号", "品牌", "客户", "手机号", "作品型号", "作品编号", "保修卡号", "到期日期", "作品照片", "保修卡正面照片", "保修卡反面照片", "售后原因", "状态", "负责门店", "门店电话", "专属顾问", "套件物流", "寄出物流", "寄回物流", "报价", "更新时间"]];
+    filtered().forEach(function (item) { rows.push([item.id, brandLabel(item.brand), customer(item), item.phone, item.reference, item.serial, item.warrantyCardNumber, item.warrantyExpiry, item.timepiecePhoto ? item.timepiecePhoto.name : "", item.warrantyCardFrontPhoto ? item.warrantyCardFrontPhoto.name : "", item.warrantyCardBackPhoto ? item.warrantyCardBackPhoto.name : "", item.reason, statusOf(item).label, item.store, item.storePhone, item.advisor, item.kitTracking, item.inboundTracking, item.outboundTracking, item.quoteAmount == null ? "" : item.quoteAmount, item.updated]); });
     var csv = "\ufeff" + rows.map(function (row) { return row.map(function (value) { var text = String(value == null ? "" : value); if (/^[=+@\-]/.test(text)) text = "'" + text; return '"' + text.replace(/"/g, '""') + '"'; }).join(","); }).join("\r\n");
     var url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" })); var link = document.createElement("a"); link.href = url; link.download = "sowind-aftersales-" + new Date().toISOString().slice(0, 10) + ".csv"; link.click(); setTimeout(function () { URL.revokeObjectURL(url); }, 0);
   }
@@ -280,6 +286,28 @@
   }
   $("editServiceReceivedImages").addEventListener("change", function (event) { updateEditImages(event, "received"); });
   $("editServiceImages").addEventListener("change", function (event) { updateEditImages(event, "service"); });
+  [
+    ["TimepiecePhoto", "timepiecePhoto"],
+    ["WarrantyCardFrontPhoto", "warrantyCardFrontPhoto"],
+    ["WarrantyCardBackPhoto", "warrantyCardBackPhoto"]
+  ].forEach(function (definition) {
+    var name = definition[0], key = definition[1];
+    $("editService" + name).addEventListener("change", async function (event) {
+      var button = $("serviceEditForm").querySelector('[type="submit"]'), version = editImageReadVersion, targetId = editingId;
+      editImageReadPending += 1; button.disabled = true; clearError("serviceEditError");
+      try {
+        var images = await readImages(event.target.files), item = service.getTicket(editingId);
+        if (version !== editImageReadVersion || targetId !== editingId || !item) return;
+        if (!images.length) return;
+        pendingEditApplicationPhotos[key] = images[0];
+        $("editService" + name + "Preview").innerHTML = imageGrid([images[0]]);
+      } catch (error) {
+        if (version === editImageReadVersion && targetId === editingId) { delete pendingEditApplicationPhotos[key]; event.target.value = ""; errorAt("serviceEditError", error); }
+      } finally {
+        if (version === editImageReadVersion && targetId === editingId) { editImageReadPending = Math.max(0, editImageReadPending - 1); button.disabled = editImageReadPending > 0; }
+      }
+    });
+  });
   $("serviceExportBtn").addEventListener("click", exportRows);
   document.addEventListener("click", function (event) { var target = event.target.closest("[data-service-image]"); if (!target) return; var image = imageCache[Number(target.dataset.serviceImage)]; if (!image) return; $("serviceImageTitle").textContent = image.name; $("serviceImageFull").src = image.dataUrl; $("serviceImageFull").alt = image.name; $("serviceImageDialog").showModal(); });
   $("closeServiceImage").addEventListener("click", function () { $("serviceImageDialog").close(); });

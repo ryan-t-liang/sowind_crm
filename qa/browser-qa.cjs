@@ -27,33 +27,11 @@ fs.mkdirSync(output, { recursive: true });
   async function expectAdminStatus(admin, status) {
     await expectText(admin.locator('#serviceDetailHeadActions'), status);
   }
-  async function expectProductImage(page, brand) {
-    const images = page.locator('.product-confirm img');
-    assert.equal(await images.count(), 1, brand + ' confirmation should contain exactly one product image');
-    const image = images.first();
-    await image.waitFor({ state: 'visible' });
-    await image.evaluate(async element => {
-      if (!element.complete || element.naturalWidth === 0) await element.decode();
-    });
-    const state = await image.evaluate(element => {
-      const rect = element.getBoundingClientRect();
-      const card = element.closest('.product-confirm').getBoundingClientRect();
-      return {
-        complete: element.complete,
-        naturalWidth: element.naturalWidth,
-        naturalHeight: element.naturalHeight,
-        alt: element.getAttribute('alt') || '',
-        src: element.currentSrc || element.src,
-        inside: rect.left >= card.left && rect.right <= card.right && rect.top >= card.top && rect.bottom <= card.bottom,
-      };
-    });
-    assert(state.complete && state.naturalWidth > 0 && state.naturalHeight > 0, brand + ' product image should load');
-    assert(state.alt.trim(), brand + ' product image should have meaningful alt text');
-    assert(state.inside, brand + ' product image should stay inside its confirmation card');
-    return state.src;
-  }
-
-  const productSources = new Map();
+  const uploadFiles = [
+    path.resolve(__dirname, '../frontend/public/figma/current/gp-product.png'),
+    path.resolve(__dirname, '../frontend/public/figma/current/9ee58.png'),
+    path.resolve(__dirname, '../frontend/public/figma/current/6e200.png'),
+  ];
 
   for (const [brand, route] of [['GP', 'girard-perregaux'], ['UN', 'ulysse-nardin']]) {
     const context = await browser.newContext({ viewport: { width: 375, height: 812 } });
@@ -89,13 +67,14 @@ fs.mkdirSync(output, { recursive: true });
       await selectMobile(mobile, '称谓*', '女士');
       await mobile.getByRole('textbox', { name: '姓氏*', exact: true }).fill('周');
       await mobile.getByRole('textbox', { name: '名字*', exact: true }).fill(brand + '测试');
-      await mobile.getByRole('textbox', { name: '电话', exact: true }).fill('13800138001');
-      await mobile.getByRole('button', { name: '添加产品', exact: true }).click();
-      await mobile.getByRole('textbox', { name: '作品编号', exact: true }).fill(brand + 'QA20261124');
-      await mobile.getByRole('button', { name: '下一步', exact: true }).click();
-      productSources.set(brand, await expectProductImage(mobile, brand));
-      await screenshot(mobile, brand.toLowerCase() + '-04-product-confirmation');
-      await mobile.getByRole('button', { name: '确定', exact: true }).click();
+      await mobile.getByRole('textbox', { name: '手机号*', exact: true }).fill('13800138001');
+      await mobile.getByRole('textbox', { name: '作品型号*', exact: true }).fill(brand === 'GP' ? '81006-11-2010-1cm' : '2405-500-2A/3A');
+      await mobile.getByRole('textbox', { name: '作品编号*', exact: true }).fill(brand + 'QA20261125');
+      await mobile.getByLabel('上传作品照片').setInputFiles(uploadFiles[0]);
+      await mobile.getByRole('textbox', { name: '保修卡号*', exact: true }).fill(brand + '00QA1125CARD');
+      await mobile.getByLabel('上传保修卡正面照片').setInputFiles(uploadFiles[1]);
+      await mobile.getByLabel('上传保修卡反面照片').setInputFiles(uploadFiles[2]);
+      await mobile.getByLabel('到期日期*').fill('2029-05-23');
       await selectMobile(mobile, '选择售后原因*', '全面保养服务');
       await mobile.getByRole('textbox', { name: '留言和说明', exact: true }).fill('请检测走时并安排全面保养');
       await mobile.getByRole('textbox', { name: '专属服务套件寄送地址*', exact: true }).fill('上海市静安区南京西路100号101室');
@@ -111,6 +90,10 @@ fs.mkdirSync(output, { recursive: true });
       await mobile.reload({ waitUntil: 'networkidle' });
       await expectText(mobile.locator('.appointment-info'), '周' + brand + '测试 女士');
       await expectText(mobile.locator('.appointment-info'), '13800138001');
+      await expectText(mobile.locator('.appointment-info'), brand + 'QA20261125');
+      await expectText(mobile.locator('.appointment-info'), brand + '00QA1125CARD');
+      await expectText(mobile.locator('.appointment-info'), '2029-05-23');
+      assert.equal(await mobile.locator('.application-detail-photos img').count(), 3, 'H5 detail should show three independent application photos');
       await expectText(mobile.locator('.appointment-info'), '南京西路100号101室');
       await expectText(mobile.locator('.appointment-info'), '愚园路200号202室');
       check('UI submission preserves custom name, phone and both addresses after reload');
@@ -119,6 +102,8 @@ fs.mkdirSync(output, { recursive: true });
       await mobile.getByRole('button', { name: '修改预约', exact: true }).click();
       assert.equal(await mobile.getByRole('textbox', { name: '名字*', exact: true }).inputValue(), brand + '测试');
       assert.equal(await mobile.getByRole('textbox', { name: '作品寄回地址*', exact: true }).inputValue(), '上海市长宁区愚园路200号202室');
+      assert.equal(await mobile.getByRole('textbox', { name: '保修卡号*', exact: true }).inputValue(), brand + '00QA1125CARD');
+      assert.equal(await mobile.locator('.application-photo img').count(), 3, 'Editing should prefill all application photos');
       await mobile.getByRole('textbox', { name: '留言和说明', exact: true }).fill('更新：请先检测走时，再联系我确认服务');
       await mobile.getByRole('button', { name: '保存修改', exact: true }).click();
       await mobile.getByRole('heading', { name: '预约修改成功', exact: true }).waitFor();
@@ -161,10 +146,23 @@ fs.mkdirSync(output, { recursive: true });
       assert.equal(await admin.locator('#serviceRows tr').count(), 1);
       const listActionBox = await admin.getByRole('button', { name: '查看详情', exact: true }).boundingBox();
       assert(listActionBox && listActionBox.width >= 80 && listActionBox.height >= 32, 'List action has a stable click target');
-      await expectText(admin.locator('#serviceRows'), brand + 'QA20261124');
+      await expectText(admin.locator('#serviceRows'), brand + 'QA20261125');
       await expectText(admin.locator('#serviceRows'), '周' + brand + '测试 女士');
       await admin.locator('#serviceRows').getByRole('button', { name: '查看详情', exact: true }).click();
       await expectText(admin.locator('#serviceInfoFields'), '更新：请先检测走时');
+      await expectText(admin.locator('#serviceCustomerFields'), brand + '00QA1125CARD');
+      await expectText(admin.locator('#serviceCustomerFields'), '2029-05-23');
+      assert.equal(await admin.locator('#serviceCustomerFields img').count(), 3, 'Admin detail should show the timepiece and both warranty-card photos');
+      await admin.getByRole('button', { name: '编辑工单', exact: true }).click();
+      assert.equal(await admin.locator('#editServiceWarrantyCardNumber').inputValue(), brand + '00QA1125CARD');
+      assert.equal(await admin.locator('#editServiceWarrantyExpiry').inputValue(), '2029-05-23');
+      assert.equal(await admin.locator('#serviceEditForm .service-image-grid img').count(), 3, 'Admin edit should prefill all three application photos');
+      await admin.locator('#editServiceWarrantyCardNumber').fill(brand + '00QA1125EDIT');
+      await admin.getByRole('button', { name: '保存更改', exact: true }).click();
+      await expectText(admin.locator('#serviceCustomerFields'), brand + '00QA1125EDIT');
+      await mobile.reload({ waitUntil: 'networkidle' });
+      await expectText(mobile.locator('.appointment-info'), brand + '00QA1125EDIT');
+      check('New model, serial, application photos and warranty fields persist across H5 and admin editing');
       await admin.getByRole('button', { name: '确认审核结果', exact: true }).click();
       await expectAdminStatus(admin, '已分配门店，跟进中');
       await admin.locator('#serviceKitTracking').fill('SF-KIT-' + brand + '-20261124');
@@ -336,8 +334,6 @@ fs.mkdirSync(output, { recursive: true });
       await context.close();
     }
   }
-  assert(productSources.has('GP') && productSources.has('UN'), 'Both brand confirmation cards should render product imagery');
-  assert.notEqual(productSources.get('GP'), productSources.get('UN'), 'GP and UN should use different product-image assets');
   await browser.close();
   const report = { base, environment: 'Chrome headless, responsive 375x812 customer and 1440x1000 admin viewports; not physical-device testing', results, failures };
   fs.writeFileSync(path.join(output, 'results.json'), JSON.stringify(report, null, 2));

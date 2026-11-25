@@ -1,5 +1,6 @@
 const { chromium } = require('../frontend/node_modules/playwright');
 const assert = require('node:assert/strict');
+const path = require('node:path');
 
 const base = (process.env.PROTOTYPE_BASE_URL || 'http://127.0.0.1:4181').replace(/\/$/, '');
 const epsilon = 1.5;
@@ -24,7 +25,11 @@ const brands = [
 const seedId = brand => `${brand}AS1234567890`;
 const pixel = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
 const repairPixel = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8zwAAAgEBALNn8ZsAAAAASUVORK5CYII=';
-const productSources = new Map();
+const uploadFiles = [
+  path.resolve(__dirname, '../frontend/public/figma/current/gp-product.png'),
+  path.resolve(__dirname, '../frontend/public/figma/current/9ee58.png'),
+  path.resolve(__dirname, '../frontend/public/figma/current/6e200.png'),
+];
 
 function serialized(value) {
   return JSON.stringify(value, null, 2);
@@ -276,39 +281,6 @@ async function assertHeaderFits(page, label) {
   await assertDocumentFits(page, label);
 }
 
-async function assertProductImage(page, brand, label) {
-  const images = page.locator('.product-confirm img');
-  assert.equal(await images.count(), 1, `${label} should render exactly one product image`);
-  const image = images.first();
-  await image.waitFor({ state: 'visible' });
-  await image.evaluate(async element => {
-    if (!element.complete || element.naturalWidth === 0) await element.decode();
-  });
-  const metrics = await image.evaluate(element => {
-    const rect = element.getBoundingClientRect();
-    const card = element.closest('.product-confirm').getBoundingClientRect();
-    return {
-      complete: element.complete,
-      naturalWidth: element.naturalWidth,
-      naturalHeight: element.naturalHeight,
-      alt: element.getAttribute('alt') || '',
-      src: element.currentSrc || element.src,
-      rect: { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom, width: rect.width, height: rect.height },
-      card: { left: card.left, top: card.top, right: card.right, bottom: card.bottom },
-    };
-  });
-  assert(metrics.complete && metrics.naturalWidth > 0 && metrics.naturalHeight > 0, `${label} product image should load\n${serialized(metrics)}`);
-  assert(metrics.alt.trim(), `${label} product image should expose a meaningful alt`);
-  assert(metrics.rect.width > 0 && metrics.rect.height > 0, `${label} product image should occupy visible space`);
-  assert(
-    metrics.rect.left >= metrics.card.left - epsilon && metrics.rect.right <= metrics.card.right + epsilon &&
-      metrics.rect.top >= metrics.card.top - epsilon && metrics.rect.bottom <= metrics.card.bottom + epsilon,
-    `${label} product image should remain inside its confirmation card\n${serialized(metrics)}`,
-  );
-  if (productSources.has(brand)) assert.equal(productSources.get(brand), metrics.src, `${brand} product image source should stay stable across viewports`);
-  else productSources.set(brand, metrics.src);
-}
-
 async function advanceSeed(page, brand, actions) {
   await page.evaluate(({ id, actions, image, completedImage }) => {
     const service = window.SowindService;
@@ -381,17 +353,16 @@ async function exerciseOverlays(page, brand, route, viewportName) {
   await selectAndAssert(page, '称谓*', '女士', prefix);
   await page.getByRole('textbox', { name: '姓氏*', exact: true }).fill('周');
   await page.getByRole('textbox', { name: '名字*', exact: true }).fill('移动回归');
-  await page.getByRole('textbox', { name: '电话', exact: true }).fill('13800138001');
-
-  await page.getByRole('button', { name: '添加产品', exact: true }).click();
-  await assertDialog(page, `${prefix}: product entry sheet`, { bottomSheet: true });
-  await page.getByRole('button', { name: '如何找到我的作品编号？', exact: true }).click();
-  await assertDialog(page, `${prefix}: expanded product help sheet`, { bottomSheet: true });
-  await page.getByRole('textbox', { name: '作品编号', exact: true }).fill(`${brand}MOBILE20261124`);
-  await page.getByRole('button', { name: '下一步', exact: true }).click();
-  await assertDialog(page, `${prefix}: product confirmation sheet`, { bottomSheet: true });
-  await assertProductImage(page, brand, `${prefix}: product confirmation sheet`);
-  await page.getByRole('button', { name: '确定', exact: true }).click();
+  await page.getByRole('textbox', { name: '手机号*', exact: true }).fill('13800138001');
+  await page.getByRole('textbox', { name: '作品型号*', exact: true }).fill(brand === 'GP' ? '81006-11-2010-1cm' : '2405-500-2A/3A');
+  await page.getByRole('textbox', { name: '作品编号*', exact: true }).fill(`${brand}MOBILE20261125`);
+  await page.getByLabel('上传作品照片').setInputFiles(uploadFiles[0]);
+  await page.getByRole('textbox', { name: '保修卡号*', exact: true }).fill(`${brand}MOBILEWARRANTY`);
+  await page.getByLabel('上传保修卡正面照片').setInputFiles(uploadFiles[1]);
+  await page.getByLabel('上传保修卡反面照片').setInputFiles(uploadFiles[2]);
+  await page.getByLabel('到期日期*').fill('2029-05-23');
+  assert.equal(await page.locator('.application-photo img').count(), 3, `${prefix}: all three uploaded previews should render`);
+  await assertDocumentFits(page, `${prefix}: filled application form`);
 
   await selectAndAssert(page, '选择售后原因*', '全面保养服务', prefix);
   await page.getByRole('textbox', { name: '留言和说明', exact: true }).fill('移动端显示回归');
@@ -514,9 +485,6 @@ async function exerciseOverlays(page, brand, route, viewportName) {
       }
     }
   }
-
-  assert(productSources.has('GP') && productSources.has('UN'), 'Both brands should expose product imagery');
-  assert.notEqual(productSources.get('GP'), productSources.get('UN'), 'GP and UN confirmation cards should use different product images');
 
   await browser.close();
   const report = {

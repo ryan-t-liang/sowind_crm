@@ -2373,6 +2373,8 @@
           <label><span class="field-label">手机号</span><input class="control" id="editServicePhone" required></label>
           <label><span class="field-label">作品型号</span><input class="control" id="editServiceReference" required></label>
           <label><span class="field-label">作品编号</span><input class="control" id="editServiceSerial" required></label>
+          <label><span class="field-label">保修卡号</span><input class="control" id="editServiceWarrantyCardNumber" required></label>
+          <label><span class="field-label">到期日期</span><input class="control" id="editServiceWarrantyExpiry" type="date" required></label>
           <label><span class="field-label">售后原因</span><select class="control" id="editServiceReason"></select></label>
           <label><span class="field-label">服务报价</span><input class="control" id="editServiceQuote" placeholder="例如：3200"></label>
           <label><span class="field-label">负责门店</span><input class="control" id="editServiceStore"></label>
@@ -2385,6 +2387,12 @@
           <label class="wide"><span class="field-label">作品寄回地址</span><input class="control" id="editServiceReturnAddress"></label>
           <label class="wide"><span class="field-label">客户说明</span><textarea class="control" id="editServiceDescription" rows="3"></textarea></label>
           <label class="wide"><span class="field-label">门店服务说明</span><textarea class="control" id="editServiceNote" rows="3"></textarea></label>
+          <label class="wide"><span class="field-label">作品照片</span><input class="control" id="editServiceTimepiecePhoto" type="file" accept="image/jpeg,image/png,image/webp"><small class="scope-note">重新选择会替换原照片；未选择则保留。</small></label>
+          <div class="wide service-image-grid" id="editServiceTimepiecePhotoPreview"></div>
+          <label class="wide"><span class="field-label">保修卡正面照片</span><input class="control" id="editServiceWarrantyCardFrontPhoto" type="file" accept="image/jpeg,image/png,image/webp"><small class="scope-note">重新选择会替换原照片；未选择则保留。</small></label>
+          <div class="wide service-image-grid" id="editServiceWarrantyCardFrontPhotoPreview"></div>
+          <label class="wide"><span class="field-label">保修卡反面照片</span><input class="control" id="editServiceWarrantyCardBackPhoto" type="file" accept="image/jpeg,image/png,image/webp"><small class="scope-note">重新选择会替换原照片；未选择则保留。</small></label>
+          <div class="wide service-image-grid" id="editServiceWarrantyCardBackPhotoPreview"></div>
           <label class="wide"><span class="field-label">作品收件图片</span><input class="control" id="editServiceReceivedImages" type="file" accept="image/jpeg,image/png,image/webp" multiple><small class="scope-note">重新选择会替换收件节点图片；未选择则保留。</small></label>
           <div class="wide service-image-grid" id="editServiceReceivedImagePreview"></div>
           <label class="wide"><span class="field-label">维修完成图片</span><input class="control" id="editServiceImages" type="file" accept="image/jpeg,image/png,image/webp" multiple><small class="scope-note">重新选择会替换维修完成节点图片；未选择则保留。</small></label>

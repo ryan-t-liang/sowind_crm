@@ -20,10 +20,17 @@ assert.equal(front.statusLabel('completed','en'),'Receipt confirmed — service 
 assert.equal(front.getTickets().length,2);
 assert.ok(front.getTickets().every(item=>new RegExp('^'+item.brand+'AS\\d{10}$').test(item.id)));
 const template=front.getTickets({brand:'GP'})[0];
+assert.equal(template.warrantyCardNumber,'GP00AB1CD23EFG');
+assert.equal(template.warrantyExpiry,'2029-05-23');
+assert.ok(template.timepiecePhoto&&template.warrantyCardFrontPhoto&&template.warrantyCardBackPhoto);
+const incompleteApplication={...template,id:undefined,timepiecePhoto:null,warrantyCardNumber:'',warrantyCardFrontPhoto:null,warrantyCardBackPhoto:null,warrantyExpiry:''};
+assert.throws(()=>front.createTicket(incompleteApplication),/保修卡号/);
 const ticket=front.createTicket({...template,id:undefined,customer:'林安 女士',lastName:'林',firstName:'安',salutation:'女士',phone:'13812345678',reason:'走时慢',kitAddress:'测试套件地址',returnAddress:'测试寄回地址'});
 assert.equal(admin.getTicket(ticket.id).customer,'林安 女士');
 assert.notEqual(ticket.id,template.id);
 assert.match(ticket.id,/^GPAS\d{10}$/);
+assert.equal(ticket.warrantyCardNumber,template.warrantyCardNumber);
+assert.equal(ticket.timepiecePhoto.dataUrl,template.timepiecePhoto.dataUrl);
 const generated=new Set([ticket.id]);
 for(let index=0;index<100;index+=1){
   const brand=index%2?'UN':'GP',source=front.getTickets({brand})[0];
@@ -111,7 +118,7 @@ assert.equal(migratedPayment.history.at(-1).status,'repair_completed');
 assert.equal(migratedPayment.history.at(-1).title,'维修完成，待寄回');
 assert.equal(migratedPayment.receivedImages[0].dataUrl,receivedImage.dataUrl);
 assert.equal(migratedPayment.serviceImages[0].dataUrl,serviceImage.dataUrl);
-assert.equal(JSON.parse(v4Map.get('sowind.aftersales.v5')).version,5);
+assert.equal(JSON.parse(v4Map.get('sowind.aftersales.v6')).version,6);
 assert.throws(()=>v4Client.transition(oldPayment.id,'return-watch',{outboundTracking:'SF3234567891234'}),/报价及付款/);
 v4Client.transition(oldPayment.id,'return-watch',{outboundTracking:'SF3234567891234',paymentConfirmed:true});
 assert.equal(v4Client.getTicket(oldPayment.id).paymentConfirmed,true);
@@ -121,4 +128,9 @@ const legacyStorage={getItem:key=>legacyMap.get(key)??null,setItem:(key,value)=>
 const migrated=client(legacyStorage),migratedTicket=migrated.getTickets({brand:'GP'})[0];
 assert.match(migratedTicket.id,/^GPAS\d{10}$/);assert.deepEqual(Array.from(migratedTicket.receivedImages),[]);
 assert.equal(migrated.getTicket(migratedTicket.id).id,migratedTicket.id);
-console.log('PASS: final bilingual status catalog, ticket IDs, v3/v4 migration, optional parts branch, prepaid repair flow, separate images, validation and storage failures');
+const v5Legacy={...template,id:'UNAS3333333333',brand:'UN',customerId:'legacy-v5',timepiecePhoto:undefined,warrantyCardNumber:undefined,warrantyCardFrontPhoto:undefined,warrantyCardBackPhoto:undefined,warrantyExpiry:undefined};
+const v5Map=new Map([["sowind.aftersales.v5",JSON.stringify({version:5,tickets:[v5Legacy]})]]),v5Storage={getItem:key=>v5Map.get(key)??null,setItem:(key,value)=>v5Map.set(key,value)};
+const v5Client=client(v5Storage),migratedV5=v5Client.getTicket('UNAS3333333333');
+assert.equal(migratedV5.timepiecePhoto,null);assert.equal(migratedV5.warrantyCardNumber,'');assert.equal(migratedV5.warrantyExpiry,'');
+assert.equal(JSON.parse(v5Map.get('sowind.aftersales.v6')).version,6);
+console.log('PASS: bilingual status catalog, ticket IDs, v3/v4/v5 migration, application and warranty fields, optional parts branch, prepaid repair flow, separate images, validation and storage failures');
