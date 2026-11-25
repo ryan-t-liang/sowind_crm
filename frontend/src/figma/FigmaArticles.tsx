@@ -49,38 +49,38 @@ const unQuestionsEn: Question[] = [
 ];
 
 const careSteps = [
-  ['拆卸表链', '将表链拆离表壳。', '77fd6.png'],
-  ['拆卸表壳', '开启表壳，拆卸机芯。', '23586.png'],
-  ['完全解拆表壳', '然后把表壳彻底解拆，准备进行清洁和检查。', 'da3ff.png'],
-  ['解拆机芯', '制表师会把机芯彻底解拆，首先对每一个零部件进行检查，以此发现任何过早磨损迹象或可能影响机械装置运行的风险。', '8eaa9.png'],
-  ['在不同清洁池中清洗各种备件和零部件', '机芯的每一个零件都要经过超声波清洁并在专用配方溶剂中清除油脂，整个过程遵守规定步骤。', '20fe2.png'],
-  ['零备件管控', '制表师仔细检查每一个零备件、进行辨别并更换不符合我们标准的零件。', 'cdb48.png'],
-  ['更换零件', '如果必要，会根据最新技术为您的时计装配新部件。仅使用由雅典表瑞士总部直供的原装替换件。', '43374.png'],
-  ['润滑', '使用最先进的润滑剂仔细润滑机芯的每一个功能性零件，以此最大程度减少摩擦、预防磨损。这能够确保您的雅典表时计的机芯持续精准运行。', '009e4.png'],
-  ['抛光零件', '我们既重视您时计的机芯，也重视它的外观。经过初始清洁后，我们会全面检查并更换表壳和表链的任何磨损或损坏的零件。专业抛光服务将使腕表恢复初始光泽，新表带将使腕表看起来崭新如初。', 'c2d3f.png'],
-  ['重新组装机芯', '重新组装机芯的过程中会检查机芯的运行精度，以此确保符合雅典表时计的高水平质量和可靠性标准。', '31d3c.png'],
-  ['重新组装表壳', '重新组装表壳并更换所有密封件，以此保证防水性能。', 'ee7c4.png'],
-  ['防水性能测试', '对表壳进行严格测试，以此确保其符合各项耐压要求。分三个步骤进行：真空测试、压缩测试和冷凝测试 — 保证不放过表壳内的任何一点点湿气。', '51d74.png'],
-  ['最终调节', '整个检修保养过程的每一个阶段都会进行严格的质量检查，保证您的时计符合雅典表的各项高标准要求。', '159bf.png'],
-  ['最终外观检查', '在最终检查时，会按照生产规格对您时计的动力储备、计时精度和外观美学进行最后一次核验，以保证时计符合最高质量标准要求。', 'e2bb0.png'],
-  ['时计的日常保养', '在对您的雅典表时计完成全面检修保养等服务后，会将时计返还给您。\n\n您的时计值得每日精心养护，为此提出以下建议，以使时计尽可能长久地正常发挥功用：\n- 尽量避免接触磁体。\n- 避免同一只手腕同时佩戴手镯。\n- 避免在睡觉和运动期间佩戴腕表。\n- 避免温度变化。\n- 用干燥软布清洁。', '86144.png'],
+  ['拆卸表链', '将表链拆离表壳。', '77fd6.webp'],
+  ['拆卸表壳', '开启表壳，拆卸机芯。', '23586.webp'],
+  ['完全解拆表壳', '然后把表壳彻底解拆，准备进行清洁和检查。', 'da3ff.webp'],
+  ['解拆机芯', '制表师会把机芯彻底解拆，首先对每一个零部件进行检查，以此发现任何过早磨损迹象或可能影响机械装置运行的风险。', '8eaa9.webp'],
+  ['在不同清洁池中清洗各种备件和零部件', '机芯的每一个零件都要经过超声波清洁并在专用配方溶剂中清除油脂，整个过程遵守规定步骤。', '20fe2.webp'],
+  ['零备件管控', '制表师仔细检查每一个零备件、进行辨别并更换不符合我们标准的零件。', 'cdb48.webp'],
+  ['更换零件', '如果必要，会根据最新技术为您的时计装配新部件。仅使用由雅典表瑞士总部直供的原装替换件。', '43374.webp'],
+  ['润滑', '使用最先进的润滑剂仔细润滑机芯的每一个功能性零件，以此最大程度减少摩擦、预防磨损。这能够确保您的雅典表时计的机芯持续精准运行。', '009e4.webp'],
+  ['抛光零件', '我们既重视您时计的机芯，也重视它的外观。经过初始清洁后，我们会全面检查并更换表壳和表链的任何磨损或损坏的零件。专业抛光服务将使腕表恢复初始光泽，新表带将使腕表看起来崭新如初。', 'c2d3f.webp'],
+  ['重新组装机芯', '重新组装机芯的过程中会检查机芯的运行精度，以此确保符合雅典表时计的高水平质量和可靠性标准。', '31d3c.webp'],
+  ['重新组装表壳', '重新组装表壳并更换所有密封件，以此保证防水性能。', 'ee7c4.webp'],
+  ['防水性能测试', '对表壳进行严格测试，以此确保其符合各项耐压要求。分三个步骤进行：真空测试、压缩测试和冷凝测试 — 保证不放过表壳内的任何一点点湿气。', '51d74.webp'],
+  ['最终调节', '整个检修保养过程的每一个阶段都会进行严格的质量检查，保证您的时计符合雅典表的各项高标准要求。', '159bf.webp'],
+  ['最终外观检查', '在最终检查时，会按照生产规格对您时计的动力储备、计时精度和外观美学进行最后一次核验，以保证时计符合最高质量标准要求。', 'e2bb0.webp'],
+  ['时计的日常保养', '在对您的雅典表时计完成全面检修保养等服务后，会将时计返还给您。\n\n您的时计值得每日精心养护，为此提出以下建议，以使时计尽可能长久地正常发挥功用：\n- 尽量避免接触磁体。\n- 避免同一只手腕同时佩戴手镯。\n- 避免在睡觉和运动期间佩戴腕表。\n- 避免温度变化。\n- 用干燥软布清洁。', '86144.webp'],
 ];
 const careStepsEn = [
-  ['Removing the bracelet', 'The bracelet is detached from the case.', '77fd6.png'],
-  ['Opening the case', 'The case is opened and the movement is removed.', '23586.png'],
-  ['Complete case disassembly', 'The case is fully disassembled in preparation for cleaning and inspection.', 'da3ff.png'],
-  ['Movement disassembly', 'The watchmaker completely disassembles the movement and inspects every component for premature wear or risks to reliable operation.', '8eaa9.png'],
-  ['Cleaning components in dedicated baths', 'Each movement component is ultrasonically cleaned and degreased in specially formulated solutions following a controlled process.', '20fe2.png'],
-  ['Component inspection', 'Every component is identified and carefully inspected; any part that does not meet our standards is replaced.', 'cdb48.png'],
-  ['Replacing components', 'Where necessary, updated components are fitted using genuine replacement parts supplied by Ulysse Nardin in Switzerland.', '43374.png'],
-  ['Lubrication', 'Every functional movement component is lubricated with advanced lubricants to reduce friction, prevent wear and maintain precision.', '009e4.png'],
-  ['Polishing', 'The case and bracelet are inspected after initial cleaning. Worn or damaged exterior components are replaced and professional polishing restores the original brilliance.', 'c2d3f.png'],
-  ['Movement reassembly', 'The movement is reassembled and its rate is checked to meet Ulysse Nardin standards for quality and reliability.', '31d3c.png'],
-  ['Case reassembly', 'The case is reassembled and all seals are replaced to restore water resistance.', 'ee7c4.png'],
-  ['Water-resistance testing', 'The case undergoes vacuum, pressure and condensation tests to verify resistance and detect any moisture.', '51d74.png'],
-  ['Final adjustment', 'Strict quality checks are performed throughout the service to ensure the timepiece meets Ulysse Nardin standards.', '159bf.png'],
-  ['Final appearance inspection', 'Power reserve, timing accuracy and appearance are checked against production specifications before release.', 'e2bb0.png'],
-  ['Daily care of your timepiece', 'After the complete service, your timepiece is returned to you. Avoid magnets, bracelets worn on the same wrist, sleeping or exercising with the watch, and sudden temperature changes. Clean it with a dry, soft cloth.', '86144.png'],
+  ['Removing the bracelet', 'The bracelet is detached from the case.', '77fd6.webp'],
+  ['Opening the case', 'The case is opened and the movement is removed.', '23586.webp'],
+  ['Complete case disassembly', 'The case is fully disassembled in preparation for cleaning and inspection.', 'da3ff.webp'],
+  ['Movement disassembly', 'The watchmaker completely disassembles the movement and inspects every component for premature wear or risks to reliable operation.', '8eaa9.webp'],
+  ['Cleaning components in dedicated baths', 'Each movement component is ultrasonically cleaned and degreased in specially formulated solutions following a controlled process.', '20fe2.webp'],
+  ['Component inspection', 'Every component is identified and carefully inspected; any part that does not meet our standards is replaced.', 'cdb48.webp'],
+  ['Replacing components', 'Where necessary, updated components are fitted using genuine replacement parts supplied by Ulysse Nardin in Switzerland.', '43374.webp'],
+  ['Lubrication', 'Every functional movement component is lubricated with advanced lubricants to reduce friction, prevent wear and maintain precision.', '009e4.webp'],
+  ['Polishing', 'The case and bracelet are inspected after initial cleaning. Worn or damaged exterior components are replaced and professional polishing restores the original brilliance.', 'c2d3f.webp'],
+  ['Movement reassembly', 'The movement is reassembled and its rate is checked to meet Ulysse Nardin standards for quality and reliability.', '31d3c.webp'],
+  ['Case reassembly', 'The case is reassembled and all seals are replaced to restore water resistance.', 'ee7c4.webp'],
+  ['Water-resistance testing', 'The case undergoes vacuum, pressure and condensation tests to verify resistance and detect any moisture.', '51d74.webp'],
+  ['Final adjustment', 'Strict quality checks are performed throughout the service to ensure the timepiece meets Ulysse Nardin standards.', '159bf.webp'],
+  ['Final appearance inspection', 'Power reserve, timing accuracy and appearance are checked against production specifications before release.', 'e2bb0.webp'],
+  ['Daily care of your timepiece', 'After the complete service, your timepiece is returned to you. Avoid magnets, bracelets worn on the same wrist, sleeping or exercising with the watch, and sudden temperature changes. Clean it with a dry, soft cloth.', '86144.webp'],
 ];
 
 export function FigmaArticles({ brand, kind, header }: {brand: Brand;kind: 'faq'|'care';header: ReactNode}) {
@@ -91,14 +91,14 @@ export function FigmaArticles({ brand, kind, header }: {brand: Brand;kind: 'faq'
   const steps = english ? careStepsEn : careSteps;
   return <section className={`fa-root fa-${brand.toLowerCase()} ${isCare?'fa-care':'fa-faq'}`}>
     <div className="fa-hero">
-      <img className="fa-hero-image" src={asset(isCare?'c87b6.png':brand==='GP'?'9831a.png':'bb9fc.png')} alt={isCare?'雅典表腕表养护':brand==='GP'?'制表师检修机芯':'雅典表机芯部件'} />
+      <img className="fa-hero-image" src={asset(isCare?'c87b6.webp':brand==='GP'?'9831a.jpg':'bb9fc.webp')} alt={isCare?'雅典表腕表养护':brand==='GP'?'制表师检修机芯':'雅典表机芯部件'} decoding="async" fetchPriority="high" />
       <div className="fa-header">{header}</div>
       <div className="fa-hero-copy"><p>雅典表时计</p><h1>{isCare?'了解腕表养护':'常见问题'}</h1></div>
     </div>
     <div className="fa-body">
       {isCare ? <>
         <p className="fa-intro">我们的制表大师将全力为您的腕表提供优质服务，延长其使用寿命。建议每隔五年进行一次全面的检修保养服务。雅典表专业制表师会进行各种检查，保证您腕表的使用功能。</p>
-        <div className="fa-care-list">{steps.map(([title,copy,file],i)=><article key={title} className={`fa-care-step fa-step-${i+1}`}><div className="fa-step-image"><img src={asset(file)} alt={title} /></div><h2>{i+1}. {title}</h2><p>{copy}</p></article>)}</div>
+        <div className="fa-care-list">{steps.map(([title,copy,file],i)=><article key={title} className={`fa-care-step fa-step-${i+1}`}><div className="fa-step-image"><img src={asset(file)} alt={title} loading="lazy" decoding="async" /></div><h2>{i+1}. {title}</h2><p>{copy}</p></article>)}</div>
       </> : <>
         <p className="fa-intro">您是否正在考虑购买或保养一枚{brand==='GP'?'芝柏表':'雅典表'}时计？<br/>这里有一些常见问题的答案。</p>
         <Accordion key={brand} type="multiple" defaultValue={questions.flatMap((q,i)=>q.open?[`faq-${i}`]:[])} className="fa-questions">

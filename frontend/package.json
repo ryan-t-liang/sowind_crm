@@ -7,8 +7,8 @@
     "dev:gp": "vite --mode gp --host 127.0.0.1",
     "dev:un": "vite --mode un --host 127.0.0.1",
     "build": "npm run build:gp && npm run build:un",
-    "build:gp": "tsc -b && vite build --mode gp && node scripts/standalone-entry.mjs dist-gp gp.html",
-    "build:un": "tsc -b && vite build --mode un && node scripts/standalone-entry.mjs dist-un un.html"
+    "build:gp": "tsc -b && vite build --mode gp && node scripts/standalone-entry.mjs dist-gp gp.html && node scripts/prune-public-assets.mjs dist-gp",
+    "build:un": "tsc -b && vite build --mode un && node scripts/standalone-entry.mjs dist-un un.html && node scripts/prune-public-assets.mjs dist-un"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.1",

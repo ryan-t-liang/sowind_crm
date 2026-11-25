@@ -11,7 +11,8 @@
     "preview": "node scripts/preview.mjs",
     "qa": "node qa/browser-qa.cjs",
     "qa:mobile": "node qa/mobile-layout.cjs",
+    "test:assets": "node qa/build-assets.test.mjs",
     "test:model": "node qa/service-model.test.mjs",
-    "verify": "npm run test:model && npm run build && npm run assemble"
+    "verify": "npm run test:model && npm run build && npm run assemble && npm run test:assets"
   }
 }

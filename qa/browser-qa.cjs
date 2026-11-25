@@ -223,7 +223,7 @@ fs.mkdirSync(output, { recursive: true });
       await admin.locator('#serviceNote').fill('已完成机芯清洁、润滑与走时检测');
       await admin.getByRole('button', { name: '提交维修结果', exact: true }).click();
       await expectText(admin.locator('#serviceActionError'), '图片');
-      await admin.locator('#serviceRepairImages').setInputFiles(path.resolve(__dirname, '../admin/sowind-sidebar-logo.png'));
+      await admin.locator('#serviceRepairImages').setInputFiles(path.resolve(__dirname, '../admin/sowind-sidebar-logo.webp'));
       await admin.getByRole('button', { name: '提交维修结果', exact: true }).click();
       await expectAdminStatus(admin, '维修完成，待寄回');
       await expectText(mobile.locator('.appointment-info'), '维修完成，待寄回');

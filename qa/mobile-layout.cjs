@@ -141,6 +141,30 @@ async function assertDocumentFits(page, label) {
   );
 }
 
+async function assertMultilineHeading(locator, label) {
+  await settle(locator);
+  const metrics = await locator.evaluate(element => {
+    const rect = element.getBoundingClientRect();
+    const style = getComputedStyle(element);
+    const lineHeight = Number.parseFloat(style.lineHeight);
+    const device = element.closest('.device').getBoundingClientRect();
+    return {
+      text: element.textContent.trim(),
+      height: rect.height,
+      lineHeight,
+      whiteSpace: style.whiteSpace,
+      rect: { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom },
+      device: { left: device.left, right: device.right },
+    };
+  });
+  assert.equal(metrics.whiteSpace, 'normal', `${label} should permit wrapping\n${serialized(metrics)}`);
+  assert(metrics.height >= metrics.lineHeight * 1.75, `${label} should render on multiple lines\n${serialized(metrics)}`);
+  assert(
+    metrics.rect.left >= metrics.device.left - epsilon && metrics.rect.right <= metrics.device.right + epsilon,
+    `${label} should stay inside the H5 shell\n${serialized(metrics)}`,
+  );
+}
+
 async function assertFloatingBox(page, locator, label) {
   await settle(locator);
   const metrics = await readGeometry(locator);
@@ -328,6 +352,21 @@ async function exerciseOverlays(page, brand, route, viewportName) {
   let response = await page.goto(`${mobileUrl}#/home`, { waitUntil: 'networkidle' });
   assert(response && response.ok(), `${prefix}: H5 entry should return HTTP 200`);
   await assertHeaderFits(page, `${prefix}: home header`);
+  assert.equal(await page.getByRole('button', { name: '我的作品', exact: true }).count(), 0, `${prefix}: retired works shortcut should not exist`);
+  await page.goto(`${mobileUrl}#/works`, { waitUntil: 'networkidle' });
+  await page.getByRole('button', { name: '售后服务', exact: true }).waitFor();
+  assert.equal(await page.getByText('我的作品', { exact: true }).count(), 0, `${prefix}: legacy works URL should not expose a works page`);
+
+  await page.goto(`${mobileUrl}#/service`, { waitUntil: 'networkidle' });
+  await page.locator('[data-sowind-language-toggle]').click();
+  const serviceHeading = page.getByRole('heading', {
+    name: brand === 'GP' ? 'Boundless Craftsmanship Across Time' : 'Mastering Time Across Every Horizon',
+    exact: true,
+  });
+  await serviceHeading.waitFor();
+  await assertMultilineHeading(serviceHeading, `${prefix}: English service heading`);
+  await assertDocumentFits(page, `${prefix}: English service page`);
+  await page.locator('[data-sowind-language-toggle]').click();
 
   await page.goto(`${mobileUrl}#/aftersales`, { waitUntil: 'networkidle' });
   await assertFloatingBox(page, page.locator('.watchmaker-carousel'), `${prefix}: aftersales carousel`);
@@ -411,6 +450,10 @@ async function exerciseOverlays(page, brand, route, viewportName) {
   await page.locator('[data-sowind-language-toggle]').click();
   await page.getByText('Repair complete — awaiting return shipment', { exact: true }).first().waitFor();
   assert.equal(await page.locator('html').getAttribute('lang'), 'en', `${prefix}: document language should switch to English`);
+  await assertMultilineHeading(
+    page.getByRole('heading', { name: 'Your after-sales service is booked', exact: true }),
+    `${prefix}: English detail heading`,
+  );
   const englishTicketNumber = await page.locator('.ticket-number').textContent();
   assert.match(englishTicketNumber || '', new RegExp(`^${brand === 'GP' ? 'Girard-Perregaux' : 'Ulysse Nardin'} service order no\\.: ${brand}AS\\d{10}$`), `${prefix}: English ticket heading should be complete and brand-correct`);
   await assertDocumentFits(page, `${prefix}: English detail page`);
