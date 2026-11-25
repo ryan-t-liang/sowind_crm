@@ -13,7 +13,18 @@ interface Window {
     updateTicket(id:string,patch:Partial<ServiceTicket>,actor?:'admin'|'customer'):ServiceTicket;
     transition(id:string,action:string,data?:Record<string,unknown>,actor?:'admin'|'customer'):ServiceTicket;
     subscribe(fn:()=>void):()=>void;
-    statusCatalog:Record<ServiceStatus,{label:string;tone:string;order:number}>;
+    statusCatalog:Record<ServiceStatus,{label:string;labelEn:string;tone:string;order:number}>;
+    statusLabel(status:ServiceStatus,locale?:string):string;
+    message(ticket:ServiceTicket,status:ServiceStatus,locale?:string):string;
     reasons:string[];canEdit(ticket:ServiceTicket):boolean;canCancel(ticket:ServiceTicket):boolean;
+  };
+  SowindI18n: {
+    getLocale():string;
+    setLocale(locale:string):void;
+    toggle():void;
+    translate(value:string,locale?:string):string;
+    apply(root?:Node):void;
+    subscribe(fn:(locale:string)=>void):()=>void;
+    storageKey:string;
   };
 }

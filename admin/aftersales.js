@@ -11,10 +11,12 @@
   var role = "ADMIN", selectedId = null, editingVersion = null, editingId = null, renderedVersion = null;
   var imageCache = [], pendingEditReceivedImages = null, pendingEditServiceImages = null, pendingReceivedImages = null, pendingRepairImages = null, imageReadVersion = 0, editImageReadVersion = 0, editImageReadPending = 0;
   var stores = ["上海南京西路形象店", "上海恒隆广场精品店", "北京国贸商城精品店", "深圳万象城精品店"];
+  function locale() { return window.SowindI18n && window.SowindI18n.getLocale ? window.SowindI18n.getLocale() : "zh-CN"; }
+  function statusLabel(status) { return service.statusLabel ? service.statusLabel(status, locale()) : (statuses[status] || {}).label || status; }
   function esc(value) { return String(value == null ? "" : value).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
   function brandLabel(brand) { return brand === "GP" ? "GP 芝柏表" : "UN 雅典表"; }
   function customer(item) { return item.customer || [item.lastName, item.firstName].join("") + " " + (item.salutation || ""); }
-  function statusOf(item) { return statuses[item.status] || { label: item.status, tone: "pending" }; }
+  function statusOf(item) { var status = statuses[item.status] || { label: item.status, tone: "pending" }; return Object.assign({}, status, { label: statusLabel(item.status) }); }
   function badge(item) { var status = statusOf(item); return '<span class="service-status ' + esc(status.tone || "active") + ' status-' + esc(item.status) + '">' + esc(status.label) + '</span>'; }
   function errorAt(id, error) { $(id).textContent = error.message || String(error); $(id).hidden = false; }
   function clearError(id) { $(id).hidden = true; $(id).textContent = ""; }
@@ -101,7 +103,7 @@
     }
     if (item.status === "assigned") return { description: "专属服务套件寄出后录入物流单号，客户可在工单记录中查看。", html: input("serviceKitTracking", "专属套件物流单号", "", 'placeholder="请输入快递单号"') + actionButton("send-kit", "确认寄出套件") };
     if (item.status === "kit_sent") return { description: "客户可在预约信息页填写寄出作品的快递单号；收到客户通知后，也可在此代录。", html: input("serviceInboundTracking", "客户寄出作品物流单号", "", 'placeholder="请输入客户提供的快递单号"') + actionButton("send-watch", "记录作品已发回") };
-    if (item.status === "customer_sent") return { description: "核对客户寄出的作品和物流信息，上传收件凭证后确认收件。该图片会显示在“作品已收到，待报价/付款”节点。", html:
+    if (item.status === "customer_sent") return { description: "核对客户寄出的作品和物流信息，上传收件凭证后确认收件。该图片会显示在“门店已收件，检测及报价中”节点。", html:
       '<label><span class="field-label">作品收件图片</span><input class="control" id="serviceReceivedImages" type="file" accept="image/jpeg,image/png,image/webp" multiple><small class="scope-note">必传，最多4张，每张不超过600KB，合计不超过1.5MB。</small></label><div id="serviceReceivedPreview">' + imageGrid(item.receivedImages) + '</div>'
       + actionButton("receive", "上传图片并确认收件") };
     if (item.status === "received") return { description: "先录入报价并确认客户已付款，再根据检测结果选择订购零件或直接开始维修。", html:
@@ -134,13 +136,13 @@
     if (usedPartsBranch) flow.splice(flow.indexOf("repairing"), 0, "parts_ordering");
     var current = flow.indexOf(item.status);
     $("serviceWorkflow").style.setProperty("--service-step-count", flow.length);
-    $("serviceWorkflow").innerHTML = flow.map(function (status, index) { return '<div class="service-step' + (index < current ? ' is-done' : index === current ? ' is-current' : '') + '"><span>' + (index + 1) + '</span><small>' + esc(statuses[status].label) + '</small></div>'; }).join("");
+    $("serviceWorkflow").innerHTML = flow.map(function (status, index) { return '<div class="service-step' + (index < current ? ' is-done' : index === current ? ' is-current' : '') + '"><span>' + (index + 1) + '</span><small>' + esc(statusLabel(status)) + '</small></div>'; }).join("");
     $("serviceCustomerFields").innerHTML = field("客户", customer(item)) + field("手机号", item.phone) + field("作品型号", item.reference) + field("作品编号", item.serial) + field("专属套件寄送地址", item.kitAddress, true) + field("作品寄回地址", item.returnAddress, true);
     $("serviceInfoFields").innerHTML = field("品牌", brandLabel(item.brand)) + field("售后原因", item.reason) + field("负责门店", item.store) + field("门店联系电话", item.storePhone) + field("专属顾问", item.advisor) + field("客户说明", item.description, true) + field("门店服务说明（客户可见）", item.serviceNote, true)
       + (item.rejectionReason ? field("拒绝原因", item.rejectionReason, true) : "") + (item.cancelReason ? field("取消原因", item.cancelReason, true) : "");
     $("serviceLogistics").innerHTML = '<article><strong>专属服务套件</strong><span>' + esc(item.kitTracking || "尚未寄出") + '</span></article><article><strong>客户寄出作品</strong><span>' + esc(item.inboundTracking || "尚未录入") + '</span></article><article><strong>作品收件图片</strong>' + (item.receivedImages && item.receivedImages.length ? imageGrid(item.receivedImages) : '<span>尚未上传</span>') + '</article><article><strong>服务报价 / 付款</strong><span>' + esc(item.quoteAmount == null ? "待门店检测后更新" : "¥" + Number(item.quoteAmount).toLocaleString("zh-CN") + (item.paymentConfirmed ? " · 已确认付款" : " · 待确认付款")) + '</span></article><article><strong>维修完成图片</strong>' + (item.serviceImages && item.serviceImages.length ? imageGrid(item.serviceImages) : '<span>尚未上传</span>') + '</article><article><strong>作品寄回</strong><span>' + esc(item.outboundTracking || "尚未寄出") + '</span></article>';
     var action = actions(item); $("serviceActionDescription").textContent = action.description; $("serviceActionControls").innerHTML = action.html;
-    $("serviceHistory").innerHTML = (item.history || []).slice().reverse().map(function (log) { return '<li><strong>' + esc(log.title) + '</strong><span>' + esc(log.time) + ' · ' + esc(log.actor === "customer" ? "客户" : "管理员") + '</span><p>' + esc(log.note) + '</p></li>'; }).join("");
+    $("serviceHistory").innerHTML = (item.history || []).slice().reverse().map(function (log) { var english = locale().indexOf("en") === 0; return '<li><strong>' + esc(statusLabel(log.status)) + '</strong><span>' + esc(log.time) + ' · ' + esc(log.actor === "customer" ? "客户" : "管理员") + '</span><p>' + esc(english && service.message ? service.message(item, log.status, locale()) : log.note) + '</p></li>'; }).join("");
   }
   function parseQuote(value, required) {
     var raw = String(value).trim();
@@ -232,7 +234,7 @@
     var csv = "\ufeff" + rows.map(function (row) { return row.map(function (value) { var text = String(value == null ? "" : value); if (/^[=+@\-]/.test(text)) text = "'" + text; return '"' + text.replace(/"/g, '""') + '"'; }).join(","); }).join("\r\n");
     var url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" })); var link = document.createElement("a"); link.href = url; link.download = "sowind-aftersales-" + new Date().toISOString().slice(0, 10) + ".csv"; link.click(); setTimeout(function () { URL.revokeObjectURL(url); }, 0);
   }
-  Object.keys(statuses).forEach(function (key) { var option = document.createElement("option"); option.value = key; option.textContent = statuses[key].label; $("serviceStatus").appendChild(option); });
+  Object.keys(statuses).forEach(function (key) { var option = document.createElement("option"); option.value = key; option.textContent = statusLabel(key); $("serviceStatus").appendChild(option); });
   service.reasons.forEach(function (reason) { var option = document.createElement("option"); option.value = reason; option.textContent = reason; $("editServiceReason").appendChild(option); });
   document.addEventListener("crm:navigate", function (event) { if (event.detail && event.detail.key === "services") showList(); });
   $("primaryNavigation").addEventListener("click", function (event) { var item = event.target.closest("[data-nav-key]"); if (item && item.dataset.navKey !== "services") { $("serviceView").classList.remove("is-active"); $("serviceDetailView").classList.remove("is-active"); } });
@@ -292,6 +294,11 @@
         } else renderDetail();
       }
     }
+  });
+  if (window.SowindI18n && window.SowindI18n.subscribe) window.SowindI18n.subscribe(function () {
+    Array.from($("serviceStatus").options).forEach(function (option) { if (option.value !== "ALL") option.textContent = statusLabel(option.value); });
+    if ($("serviceView").classList.contains("is-active")) renderList();
+    if ($("serviceDetailView").classList.contains("is-active") && !$("serviceEditDialog").open) renderDetail();
   });
   updateStores(); renderMetrics();
   window.SowindCRMAfterSales = Object.freeze({ showList: showList, showDetail: showDetail, getTickets: all, statusCatalog: statuses, serviceReasons: service.reasons });

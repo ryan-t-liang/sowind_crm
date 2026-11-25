@@ -26,6 +26,27 @@ const unQuestions: Question[] = [
   { question: '我有一枚较老款的雅典表时计，我想把它送去保养，我该怎么做？', answer: '您可以提交售后预约，并提供作品编号、型号和腕表情况。专属顾问会与您联系，协助确认适合的检修与养护安排。' },
   { question: '如果我的时计失窃，如何进行声明？', answer: '请联系雅典表专属顾问，提供作品编号、腕表资料及相关证明，以确认登记失窃声明所需的信息。' },
 ];
+const gpQuestionsEn: Question[] = [
+  { question: 'How often should my watch be serviced?', answer: 'We recommend a complete service every 3 to 5 years. The exact interval depends on wearing frequency and climate. A watch worn daily may need service every 3 years, while occasional wear may extend the interval to around 5 years.', open: true },
+  { question: 'Who is authorised to service my watch?', answer: 'Please contact an authorised Girard-Perregaux service centre or your dedicated advisor to arrange professional inspection and servicing.' },
+  { question: 'What does a complete service include?', answer: '- Movement disassembly, cleaning, lubrication and reassembly\n- Replacement or repair of worn or damaged components\n- Timing adjustment to Girard-Perregaux standards\n- Function checks and casing\n- Gasket replacement\n- Restoration of factory-level water resistance\n- Case and bracelet refinishing', open: true },
+  { question: 'What does water resistance mean?', answer: 'Water resistance depends on the watch model and the condition of its seals. Follow the watch instructions and have an authorised service centre test its water resistance.' },
+  { question: 'How often should water resistance be tested if I swim or dive with my watch?', answer: 'Tell your dedicated advisor how the watch is worn and used. An authorised service centre will recommend the appropriate testing interval.' },
+  { question: 'Is official servicing covered by a warranty?', answer: 'The coverage and duration of the service warranty are governed by the service certificate and terms provided by the authorised service centre.' },
+  { question: 'What should I know before sending my watch for service?', answer: 'Submit an after-sales appointment and wait for your dedicated advisor. After receiving the service kit, follow the boutique packing instructions, keep the shipping receipt and enter the return tracking number.' },
+];
+const unQuestionsEn: Question[] = [
+  { question: 'How often should a watch be serviced?', answer: 'We recommend servicing your watch every 3 to 5 years. The interval depends on factors such as wearing frequency and climate. Daily wear may require service about every 3 years, while occasional wear may extend the interval to around 5 years.', open: true },
+  { question: 'Who is authorised to provide after-sales service?', answer: 'Please contact an authorised Ulysse Nardin service centre or your dedicated advisor to arrange professional inspection and servicing.' },
+  { question: 'What is included in a complete service?', answer: '- Movement disassembly, cleaning, assembly and lubrication\n- Repair or replacement of worn or damaged movement components\n- Timing and accuracy adjustment to Ulysse Nardin standards\n- Casing and function checks\n- Crown, pusher and gasket replacement where applicable\n- Restoration of factory water resistance\n- Case and bracelet refinishing', open: true },
+  { question: 'What does water resistance mean?', answer: 'Water resistance depends on the watch model and the condition of its seals. Follow the watch instructions and have an authorised service centre test its water resistance.' },
+  { question: 'How often should water resistance be tested for swimming or diving?', answer: 'Tell your dedicated advisor how the watch is worn and used. An authorised service centre will recommend the appropriate testing interval.' },
+  { question: 'What is the service warranty?', answer: 'The coverage and duration of the service warranty are governed by the service certificate and terms provided by the authorised service centre.' },
+  { question: 'What should I know before sending a watch for service?', answer: 'Submit an after-sales appointment and wait for your dedicated advisor. Follow the boutique packing instructions, retain the shipping receipt and enter the tracking number.' },
+  { question: 'What information is needed for an archive search for a vintage Ulysse Nardin timepiece?', answer: 'Please provide photographs of the front and back of the timepiece and the movement number. A qualified watchmaker must open the case to locate the movement number. Send this information to us so that we can search the archives.', open: true },
+  { question: 'How do I arrange service for a vintage Ulysse Nardin timepiece?', answer: 'Submit an after-sales appointment with the timepiece number, model and condition. Your dedicated advisor will contact you to arrange the appropriate inspection and service.' },
+  { question: 'How do I report a stolen timepiece?', answer: 'Contact your Ulysse Nardin advisor and provide the timepiece number, watch details and supporting documents required to register the theft.' },
+];
 
 const careSteps = [
   ['拆卸表链', '将表链拆离表壳。', '77fd6.png'],
@@ -44,11 +65,30 @@ const careSteps = [
   ['最终外观检查', '在最终检查时，会按照生产规格对您时计的动力储备、计时精度和外观美学进行最后一次核验，以保证时计符合最高质量标准要求。', 'e2bb0.png'],
   ['时计的日常保养', '在对您的雅典表时计完成全面检修保养等服务后，会将时计返还给您。\n\n您的时计值得每日精心养护，为此提出以下建议，以使时计尽可能长久地正常发挥功用：\n- 尽量避免接触磁体。\n- 避免同一只手腕同时佩戴手镯。\n- 避免在睡觉和运动期间佩戴腕表。\n- 避免温度变化。\n- 用干燥软布清洁。', '86144.png'],
 ];
+const careStepsEn = [
+  ['Removing the bracelet', 'The bracelet is detached from the case.', '77fd6.png'],
+  ['Opening the case', 'The case is opened and the movement is removed.', '23586.png'],
+  ['Complete case disassembly', 'The case is fully disassembled in preparation for cleaning and inspection.', 'da3ff.png'],
+  ['Movement disassembly', 'The watchmaker completely disassembles the movement and inspects every component for premature wear or risks to reliable operation.', '8eaa9.png'],
+  ['Cleaning components in dedicated baths', 'Each movement component is ultrasonically cleaned and degreased in specially formulated solutions following a controlled process.', '20fe2.png'],
+  ['Component inspection', 'Every component is identified and carefully inspected; any part that does not meet our standards is replaced.', 'cdb48.png'],
+  ['Replacing components', 'Where necessary, updated components are fitted using genuine replacement parts supplied by Ulysse Nardin in Switzerland.', '43374.png'],
+  ['Lubrication', 'Every functional movement component is lubricated with advanced lubricants to reduce friction, prevent wear and maintain precision.', '009e4.png'],
+  ['Polishing', 'The case and bracelet are inspected after initial cleaning. Worn or damaged exterior components are replaced and professional polishing restores the original brilliance.', 'c2d3f.png'],
+  ['Movement reassembly', 'The movement is reassembled and its rate is checked to meet Ulysse Nardin standards for quality and reliability.', '31d3c.png'],
+  ['Case reassembly', 'The case is reassembled and all seals are replaced to restore water resistance.', 'ee7c4.png'],
+  ['Water-resistance testing', 'The case undergoes vacuum, pressure and condensation tests to verify resistance and detect any moisture.', '51d74.png'],
+  ['Final adjustment', 'Strict quality checks are performed throughout the service to ensure the timepiece meets Ulysse Nardin standards.', '159bf.png'],
+  ['Final appearance inspection', 'Power reserve, timing accuracy and appearance are checked against production specifications before release.', 'e2bb0.png'],
+  ['Daily care of your timepiece', 'After the complete service, your timepiece is returned to you. Avoid magnets, bracelets worn on the same wrist, sleeping or exercising with the watch, and sudden temperature changes. Clean it with a dry, soft cloth.', '86144.png'],
+];
 
 export function FigmaArticles({ brand, kind, header }: {brand: Brand;kind: 'faq'|'care';header: ReactNode}) {
   // The GP design has no separate care article; its complete-service FAQ is the supplied GP reference.
   const isCare = kind === 'care' && brand === 'UN';
-  const questions = brand === 'GP' ? gpQuestions : unQuestions;
+  const english = window.SowindI18n?.getLocale?.().startsWith('en');
+  const questions = english ? (brand === 'GP' ? gpQuestionsEn : unQuestionsEn) : (brand === 'GP' ? gpQuestions : unQuestions);
+  const steps = english ? careStepsEn : careSteps;
   return <section className={`fa-root fa-${brand.toLowerCase()} ${isCare?'fa-care':'fa-faq'}`}>
     <div className="fa-hero">
       <img className="fa-hero-image" src={asset(isCare?'c87b6.png':brand==='GP'?'9831a.png':'bb9fc.png')} alt={isCare?'雅典表腕表养护':brand==='GP'?'制表师检修机芯':'雅典表机芯部件'} />
@@ -58,7 +98,7 @@ export function FigmaArticles({ brand, kind, header }: {brand: Brand;kind: 'faq'
     <div className="fa-body">
       {isCare ? <>
         <p className="fa-intro">我们的制表大师将全力为您的腕表提供优质服务，延长其使用寿命。建议每隔五年进行一次全面的检修保养服务。雅典表专业制表师会进行各种检查，保证您腕表的使用功能。</p>
-        <div className="fa-care-list">{careSteps.map(([title,copy,file],i)=><article key={title} className={`fa-care-step fa-step-${i+1}`}><div className="fa-step-image"><img src={asset(file)} alt={title} /></div><h2>{i+1}. {title}</h2><p>{copy}</p></article>)}</div>
+        <div className="fa-care-list">{steps.map(([title,copy,file],i)=><article key={title} className={`fa-care-step fa-step-${i+1}`}><div className="fa-step-image"><img src={asset(file)} alt={title} /></div><h2>{i+1}. {title}</h2><p>{copy}</p></article>)}</div>
       </> : <>
         <p className="fa-intro">您是否正在考虑购买或保养一枚{brand==='GP'?'芝柏表':'雅典表'}时计？<br/>这里有一些常见问题的答案。</p>
         <Accordion key={brand} type="multiple" defaultValue={questions.flatMap((q,i)=>q.open?[`faq-${i}`]:[])} className="fa-questions">

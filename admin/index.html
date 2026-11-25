@@ -280,6 +280,8 @@
     }
     .breadcrumb { min-width: 180px; color: var(--muted); font-size: 12px; }
     .breadcrumb strong { color: var(--ink); font-weight: 600; }
+    .topbar-language-toggle { min-width: 44px; height: 32px; padding: 0 12px; border: 1px solid var(--line); border-radius: 999px; background: #fff; color: var(--ink); font-size: 11px; font-weight: 700; letter-spacing: .03em; cursor: pointer; }
+    .topbar-language-toggle:hover { border-color: #aaa79f; background: #faf9f6; }
     .global-search {
       width: min(460px, 42vw);
       height: 40px;
@@ -2012,6 +2014,7 @@
     <main class="workspace">
       <header class="topbar">
         <div class="breadcrumb">Sowind China&nbsp;&nbsp;/&nbsp;&nbsp;<strong id="breadcrumbText">会员</strong></div>
+        <button class="topbar-language-toggle" id="languageToggle" type="button" data-sowind-language-toggle data-i18n-ignore aria-label="切换为英文" title="切换为英文">EN</button>
       </header>
 
       <section id="listView" class="view is-active">
@@ -5054,6 +5057,7 @@
       });
     }());
   </script>
+  <script src="./i18n-runtime.js"></script>
   <script src="./service-model.js"></script>
   <script src="./aftersales.js"></script>
 </body>

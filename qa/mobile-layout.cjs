@@ -391,14 +391,14 @@ async function exerciseOverlays(page, brand, route, viewportName) {
     : ['send-watch', 'receive', 'start-repair', 'finish-repair'];
   await advanceSeed(page, brand, repairPath);
   await page.goto(`${mobileUrl}#/record/${seedId(brand)}`, { waitUntil: 'networkidle' });
-  await page.locator('.appointment-info').getByText('作品维修完成，待寄回', { exact: true }).waitFor();
+  await page.locator('.appointment-info').getByText('维修完成，待寄回', { exact: true }).waitFor();
   await page.getByRole('button', { name: '工单记录', exact: true }).click();
-  for (const status of ['作品已收到，待报价/付款', '作品报价/付款已确认，正在维修中', '作品维修完成，待寄回']) {
+  for (const status of ['门店已收件，检测及报价中', '维修中', '维修完成，待寄回']) {
     assert.equal(await page.locator('.ticket-timeline li').filter({ hasText: status }).count(), 1, `${prefix}: timeline should contain ${status} exactly once`);
   }
-  if (brand === 'UN') assert.equal(await page.locator('.ticket-timeline li').filter({ hasText: '作品报价/付款已确认，订零件中' }).count(), 1, `${prefix}: parts branch should be visible exactly once`);
-  const receivedImage = page.locator('.ticket-timeline li').filter({ hasText: '作品已收到，待报价/付款' }).locator('.timeline-images img').first();
-  const repairImage = page.locator('.ticket-timeline li').filter({ hasText: '作品维修完成，待寄回' }).locator('.timeline-images img').first();
+  if (brand === 'UN') assert.equal(await page.locator('.ticket-timeline li').filter({ hasText: '维修配件订购中' }).count(), 1, `${prefix}: parts branch should be visible exactly once`);
+  const receivedImage = page.locator('.ticket-timeline li').filter({ hasText: '门店已收件，检测及报价中' }).locator('.timeline-images img').first();
+  const repairImage = page.locator('.ticket-timeline li').filter({ hasText: '维修完成，待寄回' }).locator('.timeline-images img').first();
   await receivedImage.waitFor();
   await repairImage.waitFor();
   assert.notEqual(await receivedImage.getAttribute('src'), await repairImage.getAttribute('src'), `${prefix}: received and repair-completion images should be independent`);
@@ -407,6 +407,15 @@ async function exerciseOverlays(page, brand, route, viewportName) {
   await assertDialog(page, `${prefix}: service image preview dialog`);
   assert(await page.locator('.preview-image').evaluate(image => image.complete && image.naturalWidth > 0), `${prefix}: preview image should render`);
   await page.getByRole('button', { name: '返回', exact: true }).click();
+
+  await page.locator('[data-sowind-language-toggle]').click();
+  await page.getByText('Repair complete — awaiting return shipment', { exact: true }).first().waitFor();
+  assert.equal(await page.locator('html').getAttribute('lang'), 'en', `${prefix}: document language should switch to English`);
+  const englishTicketNumber = await page.locator('.ticket-number').textContent();
+  assert.match(englishTicketNumber || '', new RegExp(`^${brand === 'GP' ? 'Girard-Perregaux' : 'Ulysse Nardin'} service order no\\.: ${brand}AS\\d{10}$`), `${prefix}: English ticket heading should be complete and brand-correct`);
+  await assertDocumentFits(page, `${prefix}: English detail page`);
+  await page.locator('[data-sowind-language-toggle]').click();
+  await page.getByText('维修完成，待寄回', { exact: true }).first().waitFor();
 
   await advanceSeed(page, brand, ['return-watch']);
   await page.goto(`${mobileUrl}#/record/${seedId(brand)}`, { waitUntil: 'networkidle' });

@@ -7,6 +7,16 @@ let broken=false;
 const storage={getItem:k=>data.get(k)??null,setItem:(k,v)=>{if(broken)throw new Error('quota');data.set(k,v);}};
 function client(targetStorage=storage){const window=new EventTarget();Object.assign(window,{localStorage:targetStorage});vm.runInNewContext(code,{window,Event,console});return window.SowindService;}
 const front=client(),admin=client();
+const expectedStatuses={
+  submitted:'申请已提交，待专属顾问联系',rejected:'申请未通过',assigned:'已分配门店，跟进中',
+  kit_sent:'专属服务套件已寄出',customer_sent:'作品已寄出，待门店签收',received:'门店已收件，检测及报价中',
+  parts_ordering:'维修配件订购中',repairing:'维修中',repair_completed:'维修完成，待寄回',
+  return_sent:'作品已寄回，待您签收',completed:'您已确认收货，服务完成',cancelled:'售后服务已取消'
+};
+for(const [status,label] of Object.entries(expectedStatuses))assert.equal(front.statusLabel(status,'zh-CN'),label);
+assert.deepEqual(Object.keys(front.statusCatalog),Object.keys(expectedStatuses));
+assert.equal(front.statusLabel('parts_ordering','en'),'Repair parts on order');
+assert.equal(front.statusLabel('completed','en'),'Receipt confirmed — service complete');
 assert.equal(front.getTickets().length,2);
 assert.ok(front.getTickets().every(item=>new RegExp('^'+item.brand+'AS\\d{10}$').test(item.id)));
 const template=front.getTickets({brand:'GP'})[0];
@@ -94,11 +104,11 @@ const v4Map=new Map([["sowind.aftersales.v4",JSON.stringify({version:4,tickets:[
 const v4Storage={getItem:key=>v4Map.get(key)??null,setItem:(key,value)=>v4Map.set(key,value)};
 const v4Client=client(v4Storage),migratedReceived=v4Client.getTicket(oldReceived.id),migratedPayment=v4Client.getTicket(oldPayment.id);
 assert.equal(migratedReceived.status,'received');
-assert.equal(migratedReceived.history.at(-1).title,'作品已收到，待报价/付款');
+assert.equal(migratedReceived.history.at(-1).title,'门店已收件，检测及报价中');
 assert.equal(migratedPayment.status,'repair_completed');
 assert.equal(migratedPayment.paymentConfirmed,false);
 assert.equal(migratedPayment.history.at(-1).status,'repair_completed');
-assert.equal(migratedPayment.history.at(-1).title,'作品维修完成，待寄回');
+assert.equal(migratedPayment.history.at(-1).title,'维修完成，待寄回');
 assert.equal(migratedPayment.receivedImages[0].dataUrl,receivedImage.dataUrl);
 assert.equal(migratedPayment.serviceImages[0].dataUrl,serviceImage.dataUrl);
 assert.equal(JSON.parse(v4Map.get('sowind.aftersales.v5')).version,5);
@@ -111,4 +121,4 @@ const legacyStorage={getItem:key=>legacyMap.get(key)??null,setItem:(key,value)=>
 const migrated=client(legacyStorage),migratedTicket=migrated.getTickets({brand:'GP'})[0];
 assert.match(migratedTicket.id,/^GPAS\d{10}$/);assert.deepEqual(Array.from(migratedTicket.receivedImages),[]);
 assert.equal(migrated.getTicket(migratedTicket.id).id,migratedTicket.id);
-console.log('PASS: ticket IDs, v3/v4 migration, optional parts branch, prepaid repair flow, separate images, validation and storage failures');
+console.log('PASS: final bilingual status catalog, ticket IDs, v3/v4 migration, optional parts branch, prepaid repair flow, separate images, validation and storage failures');

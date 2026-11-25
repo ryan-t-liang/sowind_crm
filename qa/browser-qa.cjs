@@ -130,13 +130,12 @@ fs.mkdirSync(output, { recursive: true });
       await admin.goto(base + '/mockup/sowind_crm/index.html', { waitUntil: 'networkidle' });
       await admin.getByRole('button', { name: '售后服务', exact: true }).click();
       const newStatusLabels = [
-        '作品已收到，待报价/付款',
-        '作品报价/付款已确认，订零件中',
-        '作品报价/付款已确认，正在维修中',
-        '作品维修完成，待寄回',
+        '申请已提交，待专属顾问联系', '申请未通过', '已分配门店，跟进中', '专属服务套件已寄出',
+        '作品已寄出，待门店签收', '门店已收件，检测及报价中', '维修配件订购中', '维修中',
+        '维修完成，待寄回', '作品已寄回，待您签收', '您已确认收货，服务完成', '售后服务已取消',
       ];
       const statusOptions = await admin.locator('#serviceStatus option').allTextContents();
-      for (const label of newStatusLabels) assert(statusOptions.includes(label), 'Admin status filter should include ' + label);
+      assert.deepEqual(statusOptions.slice(1), newStatusLabels, 'Admin status filter should follow the approved 12-state order');
       assert(!statusOptions.includes('作品已收到，待售后'), 'Admin filter should remove the old received status');
       assert(!statusOptions.includes('作品已完成售后，待付款'), 'Admin filter should remove the old post-repair payment status');
       const newStatusColors = await admin.evaluate(statuses => statuses.map(status => {
@@ -167,10 +166,10 @@ fs.mkdirSync(output, { recursive: true });
       await admin.locator('#serviceRows').getByRole('button', { name: '查看详情', exact: true }).click();
       await expectText(admin.locator('#serviceInfoFields'), '更新：请先检测走时');
       await admin.getByRole('button', { name: '确认审核结果', exact: true }).click();
-      await expectAdminStatus(admin, '门店跟进中');
+      await expectAdminStatus(admin, '已分配门店，跟进中');
       await admin.locator('#serviceKitTracking').fill('SF-KIT-' + brand + '-20261124');
       await admin.getByRole('button', { name: '确认寄出套件', exact: true }).click();
-      await expectAdminStatus(admin, '专属配件已寄送');
+      await expectAdminStatus(admin, '专属服务套件已寄出');
       await mobile.getByRole('button', { name: '填写快递单号', exact: true }).waitFor();
       check('CRM finds exact submitted ticket and updates customer page across tabs');
       await screenshot(admin, brand.toLowerCase() + '-06-admin-kit');
@@ -186,22 +185,22 @@ fs.mkdirSync(output, { recursive: true });
       await mobile.getByRole('button', { name: '提交', exact: true }).click();
       await mobile.getByRole('heading', { name: '确认快递单号', exact: true }).waitFor();
       await mobile.getByRole('button', { name: '确定', exact: true }).click();
-      await expectAdminStatus(admin, '作品已发回');
+      await expectAdminStatus(admin, '作品已寄出，待门店签收');
       await expectText(admin.locator('#serviceLogistics'), 'SF-IN-' + brand + '-20261124');
       assert(await mobile.getByRole('button', { name: '修改预约', exact: true }).isDisabled(), 'Editing disabled after watch is shipped');
       check('Customer tracking confirmation updates the same CRM ticket');
 
       await admin.getByRole('button', { name: '上传图片并确认收件', exact: true }).click();
       await expectText(admin.locator('#serviceActionError'), '收件图片');
-      await expectAdminStatus(admin, '作品已发回');
+      await expectAdminStatus(admin, '作品已寄出，待门店签收');
       await admin.locator('#serviceReceivedImages').setInputFiles(path.resolve(__dirname, '../frontend/public/figma/current/6e200.png'));
       await admin.getByRole('button', { name: '上传图片并确认收件', exact: true }).click();
-      await expectAdminStatus(admin, '作品已收到，待报价/付款');
-      await expectText(mobile.locator('.appointment-info'), '作品已收到，待报价/付款');
+      await expectAdminStatus(admin, '门店已收件，检测及报价中');
+      await expectText(mobile.locator('.appointment-info'), '门店已收件，检测及报价中');
       await admin.locator('#serviceQuote').fill('abc');
       await admin.getByRole('button', { name: '确认付款并开始维修', exact: true }).click();
       await expectText(admin.locator('#serviceActionError'), '有效报价');
-      await expectAdminStatus(admin, '作品已收到，待报价/付款');
+      await expectAdminStatus(admin, '门店已收件，检测及报价中');
       await admin.locator('#serviceQuote').fill('-10');
       await admin.getByRole('button', { name: '确认付款并开始维修', exact: true }).click();
       await expectText(admin.locator('#serviceActionError'), '有效报价');
@@ -211,14 +210,14 @@ fs.mkdirSync(output, { recursive: true });
       await admin.locator('#servicePaymentConfirmed').check();
       if (brand === 'UN') {
         await admin.getByRole('button', { name: '确认付款并订零件', exact: true }).click();
-        await expectAdminStatus(admin, '作品报价/付款已确认，订零件中');
-        await expectText(mobile.locator('.appointment-info'), '作品报价/付款已确认，订零件中');
+        await expectAdminStatus(admin, '维修配件订购中');
+        await expectText(mobile.locator('.appointment-info'), '维修配件订购中');
         await admin.getByRole('button', { name: '零件已到货，开始维修', exact: true }).click();
       } else {
         await admin.getByRole('button', { name: '确认付款并开始维修', exact: true }).click();
       }
-      await expectAdminStatus(admin, '作品报价/付款已确认，正在维修中');
-      await expectText(mobile.locator('.appointment-info'), '作品报价/付款已确认，正在维修中');
+      await expectAdminStatus(admin, '维修中');
+      await expectText(mobile.locator('.appointment-info'), '维修中');
       await admin.getByRole('button', { name: '提交维修结果', exact: true }).click();
       await expectText(admin.locator('#serviceActionError'), '服务说明');
       await admin.locator('#serviceNote').fill('已完成机芯清洁、润滑与走时检测');
@@ -226,20 +225,20 @@ fs.mkdirSync(output, { recursive: true });
       await expectText(admin.locator('#serviceActionError'), '图片');
       await admin.locator('#serviceRepairImages').setInputFiles(path.resolve(__dirname, '../admin/sowind-sidebar-logo.png'));
       await admin.getByRole('button', { name: '提交维修结果', exact: true }).click();
-      await expectAdminStatus(admin, '作品维修完成，待寄回');
-      await expectText(mobile.locator('.appointment-info'), '作品维修完成，待寄回');
+      await expectAdminStatus(admin, '维修完成，待寄回');
+      await expectText(mobile.locator('.appointment-info'), '维修完成，待寄回');
       await mobile.getByRole('button', { name: '工单记录', exact: true }).click();
       await expectText(mobile.locator('.timeline-quote'), '3,200.5');
-      for (const status of ['作品已收到，待报价/付款', '作品报价/付款已确认，正在维修中', '作品维修完成，待寄回']) {
+      for (const status of ['门店已收件，检测及报价中', '维修中', '维修完成，待寄回']) {
         assert.equal(await mobile.locator('.ticket-timeline li').filter({ hasText: status }).count(), 1, status + ' should appear exactly once in the customer timeline');
       }
       assert.equal(
-        await mobile.locator('.ticket-timeline li').filter({ hasText: '作品报价/付款已确认，订零件中' }).count(),
+        await mobile.locator('.ticket-timeline li').filter({ hasText: '维修配件订购中' }).count(),
         brand === 'UN' ? 1 : 0,
         'Only the parts-ordering branch should show the optional parts status',
       );
-      const receivedEvent = mobile.locator('.ticket-timeline li').filter({ hasText: '作品已收到，待报价/付款' }).first();
-      const repairCompletedEvent = mobile.locator('.ticket-timeline li').filter({ hasText: '作品维修完成，待寄回' }).first();
+      const receivedEvent = mobile.locator('.ticket-timeline li').filter({ hasText: '门店已收件，检测及报价中' }).first();
+      const repairCompletedEvent = mobile.locator('.ticket-timeline li').filter({ hasText: '维修完成，待寄回' }).first();
       const receivedImage = receivedEvent.locator('.timeline-images img').first();
       const repairImage = repairCompletedEvent.locator('.timeline-images img').first();
       await receivedImage.waitFor();
@@ -259,15 +258,15 @@ fs.mkdirSync(output, { recursive: true });
 
       await admin.locator('#serviceOutboundTracking').fill('SF-OUT-' + brand + '-20261124');
       await admin.getByRole('button', { name: '录入物流并确认寄回', exact: true }).click();
-      await expectAdminStatus(admin, '作品已寄回，待签收');
+      await expectAdminStatus(admin, '作品已寄回，待您签收');
       await mobile.getByRole('button', { name: '我已收到作品', exact: true }).waitFor();
       await expectText(mobile.locator('.ticket-timeline'), 'SF-OUT-' + brand + '-20261124');
       await mobile.getByRole('button', { name: '我已收到作品', exact: true }).click();
       await mobile.getByRole('heading', { name: '签收确认', exact: true }).waitFor();
       await mobile.getByRole('button', { name: '确定', exact: true }).click();
-      await expectAdminStatus(admin, '服务完成');
+      await expectAdminStatus(admin, '您已确认收货，服务完成');
       await mobile.reload({ waitUntil: 'networkidle' });
-      await expectText(mobile.locator('.appointment-info'), '服务完成');
+      await expectText(mobile.locator('.appointment-info'), '您已确认收货，服务完成');
       assert.equal(await mobile.getByRole('button', { name: '修改预约', exact: true }).count(), 0);
       check('Offline payment confirmation, return shipping and customer receipt complete the shared ticket and persist');
       await screenshot(mobile, brand.toLowerCase() + '-11-completed-detail');
@@ -282,9 +281,9 @@ fs.mkdirSync(output, { recursive: true });
       await mobile.getByRole('button', { name: '查看详情', exact: true }).click();
       await mobile.getByRole('button', { name: '取消预约', exact: true }).click();
       await mobile.getByRole('button', { name: '确定', exact: true }).click();
-      await expectText(mobile.locator('.appointment-info'), '已取消');
+      await expectText(mobile.locator('.appointment-info'), '售后服务已取消');
       await mobile.reload({ waitUntil: 'networkidle' });
-      await expectText(mobile.locator('.appointment-info'), '已取消');
+      await expectText(mobile.locator('.appointment-info'), '售后服务已取消');
       await mobile.getByRole('button', { name: '更多', exact: true }).click();
       await mobile.getByRole('button', { name: '查看全部', exact: true }).click();
       await mobile.getByRole('button', { name: '已取消', exact: true }).click();
@@ -294,7 +293,7 @@ fs.mkdirSync(output, { recursive: true });
       await admin.getByRole('button', { name: '返回售后服务列表', exact: true }).click();
       await admin.locator('#serviceKeyword').fill(brand + 'AS1234567890');
       await admin.getByRole('button', { name: '查询', exact: true }).click();
-      await expectText(admin.locator('#serviceRows'), '已取消');
+      await expectText(admin.locator('#serviceRows'), '售后服务已取消');
       await admin.getByRole('button', { name: '重置', exact: true }).click();
       const statusColors = await admin.locator('#serviceRows').evaluate(rows => ['submitted', 'completed', 'cancelled'].map(status => { const element = rows.querySelector('.status-' + status); return element ? getComputedStyle(element).backgroundColor : ''; }));
       assert(statusColors.every(Boolean) && new Set(statusColors).size === statusColors.length, 'Submitted, completed and cancelled statuses use distinct colors');
@@ -303,6 +302,26 @@ fs.mkdirSync(output, { recursive: true });
       assert(!(await admin.locator('#serviceView').evaluate(el => el.classList.contains('is-active'))));
       await admin.getByRole('button', { name: '线索', exact: true }).click();
       check('Original member and lead navigation remains available');
+
+      await mobile.locator('[data-sowind-language-toggle]').click();
+      await expectText(mobile.locator('body'), 'Service Records');
+      await admin.getByRole('button', { name: 'Members', exact: true }).waitFor();
+      assert.equal(await mobile.locator('html').getAttribute('lang'), 'en');
+      await screenshot(mobile, brand.toLowerCase() + '-13-english-h5');
+      await screenshot(admin, brand.toLowerCase() + '-13-english-admin-leads');
+      await mobile.reload({ waitUntil: 'networkidle' });
+      await expectText(mobile.locator('body'), 'Service Records');
+      await admin.getByRole('button', { name: 'After-sales Service', exact: true }).click();
+      const englishStatusOptions = await admin.locator('#serviceStatus option').allTextContents();
+      for (const label of ['Application submitted — awaiting advisor contact', 'Repair parts on order', 'Repair in progress', 'Receipt confirmed — service complete']) {
+        assert(englishStatusOptions.includes(label), 'English status filter should include ' + label);
+      }
+      await screenshot(admin, brand.toLowerCase() + '-14-english-admin-service');
+      assert.equal(await mobile.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, brand + ' English mobile layout has no horizontal overflow');
+      await admin.locator('#languageToggle').click();
+      await mobile.getByRole('button', { name: '更多', exact: true }).waitFor();
+      await admin.getByRole('button', { name: '会员', exact: true }).waitFor();
+      check('Chinese/English switching works across H5 and admin, persists after reload, and exposes bilingual status labels');
 
       const overflow = await mobile.evaluate(() => document.documentElement.scrollWidth > innerWidth);
       assert.equal(overflow, false, brand + ' responsive viewport has no horizontal overflow');

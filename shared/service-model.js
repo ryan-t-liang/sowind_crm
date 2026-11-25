@@ -6,18 +6,18 @@
   const LEGACY = 'sowind.crm.v1.13.3.aftersales';
   const EVENT = 'sowind:services-changed';
   const statusCatalog = {
-    submitted: {label:'已提交，待专属顾问与您联系',tone:'pending',order:0},
-    assigned: {label:'门店跟进中',tone:'active',order:1},
-    kit_sent: {label:'专属配件已寄送',tone:'active',order:2},
-    customer_sent: {label:'作品已发回',tone:'active',order:3},
-    received: {label:'作品已收到，待报价/付款',tone:'quote',order:4},
-    parts_ordering: {label:'作品报价/付款已确认，订零件中',tone:'parts',order:5},
-    repairing: {label:'作品报价/付款已确认，正在维修中',tone:'repairing',order:6},
-    repair_completed: {label:'作品维修完成，待寄回',tone:'ready',order:7},
-    return_sent: {label:'作品已寄回，待签收',tone:'active',order:8},
-    completed: {label:'服务完成',tone:'complete',order:9},
-    rejected: {label:'已拒绝',tone:'rejected',order:-1},
-    cancelled: {label:'已取消',tone:'cancelled',order:-1}
+    submitted: {label:'申请已提交，待专属顾问联系',labelEn:'Application submitted — awaiting advisor contact',tone:'pending',order:0},
+    rejected: {label:'申请未通过',labelEn:'Application not approved',tone:'rejected',order:1},
+    assigned: {label:'已分配门店，跟进中',labelEn:'Store assigned — follow-up in progress',tone:'active',order:2},
+    kit_sent: {label:'专属服务套件已寄出',labelEn:'Service kit shipped',tone:'active',order:3},
+    customer_sent: {label:'作品已寄出，待门店签收',labelEn:'Timepiece shipped — awaiting store receipt',tone:'active',order:4},
+    received: {label:'门店已收件，检测及报价中',labelEn:'Store received timepiece — inspection and quotation in progress',tone:'quote',order:5},
+    parts_ordering: {label:'维修配件订购中',labelEn:'Repair parts on order',tone:'parts',order:6},
+    repairing: {label:'维修中',labelEn:'Repair in progress',tone:'repairing',order:7},
+    repair_completed: {label:'维修完成，待寄回',labelEn:'Repair complete — awaiting return shipment',tone:'ready',order:8},
+    return_sent: {label:'作品已寄回，待您签收',labelEn:'Timepiece returned — awaiting your receipt',tone:'active',order:9},
+    completed: {label:'您已确认收货，服务完成',labelEn:'Receipt confirmed — service complete',tone:'complete',order:10},
+    cancelled: {label:'售后服务已取消',labelEn:'After-sales service cancelled',tone:'cancelled',order:11}
   };
   const reasons = ['更换电池','全面保养服务','部件遗失/损坏','功能失效','腕表抛光/翻新','走时快','走时慢','走停','腕表防水','万年历调整','摔落/震撞','消磁','其他问题'];
   const clone = value => JSON.parse(JSON.stringify(value));
@@ -72,8 +72,31 @@
     item.receivedImages = pictures(item.receivedImages || []);
     item.serviceImages = pictures(item.serviceImages || []);
   }
-  function message(item, status) {
+  function statusLabel(status, locale='zh-CN') {
+    const entry=statusCatalog[status];
+    if(!entry)return status;
+    return String(locale).toLowerCase().startsWith('en')?entry.labelEn:entry.label;
+  }
+  function message(item, status, locale='zh-CN') {
     const store = item.store + (item.storePhone ? '（'+item.storePhone+'）' : '');
+    if(String(locale).toLowerCase().startsWith('en')){
+      const englishStore=item.store+(item.storePhone?' ('+item.storePhone+')':'');
+      const english={
+        submitted:'Your after-sales request has been submitted. Please wait for your dedicated advisor to contact you.',
+        assigned:'Your request has been assigned to '+englishStore+'. A boutique advisor will contact you.',
+        kit_sent:'Your service kit has been shipped. Tracking number: '+item.kitTracking+'. Please contact '+englishStore+' if you have any questions.',
+        customer_sent:'Your timepiece has been shipped to the boutique. Tracking number: '+item.inboundTracking+'. We will update the order after receipt.',
+        received:'The boutique has received your timepiece and is inspecting it. Please wait for '+englishStore+' to confirm the quotation and payment.',
+        parts_ordering:'Your quotation and payment are confirmed. Required repair parts are being ordered. Service quotation: '+item.quote+'.',
+        repairing:'Your quotation and payment are confirmed, and your timepiece is being repaired. Please contact '+englishStore+' if you have any questions. Service quotation: '+item.quote+'.',
+        repair_completed:'The repair is complete and the boutique will arrange return shipment.'+(item.serviceNote?'\nService notes: '+item.serviceNote:'')+(item.quoteAmount!=null?'\nService quotation: '+item.quote:''),
+        return_sent:'Your timepiece has been returned to your appointment address. Tracking number: '+item.outboundTracking+'.',
+        completed:'You have confirmed receipt of your timepiece. The after-sales service is complete.',
+        rejected:'Your request was not approved: '+item.rejectionReason,
+        cancelled:'Your after-sales service has been cancelled. '+(item.cancelReason||'')
+      };
+      return english[status];
+    }
     const messages = {
       submitted:'尊敬客户，您已提交售后服务申请，请耐心等待专属顾问与您联系',
       assigned:'尊敬客户，您的售后服务将由 '+store+' 继续跟进，请等待门店顾问联系您',
@@ -213,5 +236,5 @@
     root.addEventListener('storage',storage);root.addEventListener(EVENT,fn);
     return ()=>{root.removeEventListener('storage',storage);root.removeEventListener(EVENT,fn);};
   }
-  root.SowindService=Object.freeze({getTickets,getTicket,createTicket,updateTicket,transition,subscribe,statusCatalog:clone(statusCatalog),reasons:[...reasons],canEdit,canCancel});
+  root.SowindService=Object.freeze({getTickets,getTicket,createTicket,updateTicket,transition,subscribe,statusCatalog:clone(statusCatalog),statusLabel,message,reasons:[...reasons],canEdit,canCancel});
 })(window);

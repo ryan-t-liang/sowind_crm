@@ -7,3 +7,5 @@ dist-site/
 qa-artifacts/
 frontend/public/service-model.js
 admin/service-model.js
+frontend/public/i18n-runtime.js
+admin/i18n-runtime.js
